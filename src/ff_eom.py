@@ -161,7 +161,7 @@ if __name__ == '__main__':
     # ax.plot([sat_centre[0], points[0, 0]], [sat_centre[1], points[1, 0]],)
     ax.plot([0, 0.5], [0, 0.])  # inertial x axis
     ax.plot([0, 0.], [0, 0.5])  # inertial y axis
-    origin_vect = j_T_full[0, 0:3, 3]
+    origin_vect = j_T_full[:, 0:3, 3]
     tmp = np.diff(origin_vect, axis=0)
     for i in range(j_T_full.shape[0]):
         trans_temp = j_T_full[i, 0:3, 3]
@@ -170,10 +170,8 @@ if __name__ == '__main__':
         ax.plot([trans_temp[0], trans_temp[0] + rot_temp[0, 0]], [trans_temp[1], trans_temp[1] + rot_temp[1, 0]])  # x axis of {j_i} th CS
         ax.plot([trans_temp[0], trans_temp[0] + rot_temp[0, 1]], [trans_temp[1], trans_temp[1] + rot_temp[1, 1]])  # y axis of {j_i} th CS
 
-
-
-
-    ax.plot([origin_vect[1, 0]])
+    for i in range(len(origin_vect) -1):
+        ax.plot([origin_vect[i, 0], origin_vect[i+1, 0]], [origin_vect[i, 1], origin_vect[i, i+1]])
         # plt.arrow(temp[0] + temp1[0, 0], temp[1] + temp1[1, 0], temp[0] + temp1[0, 1], temp[1] + temp1[1, 1] )
     # ax.plot([sat_centre[0], 0], [sat_centre[1], 0],)
     # ax.plot([robot_base[0], 0], [robot_base[1], 0],)
