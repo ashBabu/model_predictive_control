@@ -13,7 +13,7 @@ class eom():
         self.m_0, self.m1, self.m2 = 5, 3, 2   # m_s = spacecraft mass, m_i = mass of i^th link
         self.m = [self.m_0, self.m1, self.m2]
         # DH parameters
-        self.l1, self.l2 = 1, 1   # l_i = length of i^th link
+        self.l1, self.l2 = 1, 0.5   # l_i = length of i^th link
         self.a = np.array([0, self.l1, self.l2])
         self.d = np.array([0., 0.])
         self.alpha = np.array([0., 0.])
@@ -80,11 +80,11 @@ class eom():
         s_T_j1 = self.euler_transformation_mat(ang_xb, ang_yb, ang_zb, b0)  # a constant 4 x 4 matrix
         T_ee, T_joint = self.fwd_kin(q, self.a)  #
         j_T_j1 = j_T_s @ s_T_j1
-        j_T_full = np.zeros([self.numJoints+2, 4, 4])
+        j_T_full = np.zeros([self.numJoints+3, 4, 4])
         j_T_full[0, :, :] = j_T_s
         j_T_full[1, :, :] = j_T_j1
-        k = 1
-        for i in range(2, 2+self.numJoints):
+        k = 0
+        for i in range(2, 3+self.numJoints):
             j_T_full[i, :, :] = j_T_j1 @ T_joint[k, :, :]
             k += 1
         return j_T_full
@@ -148,36 +148,40 @@ if __name__ == '__main__':
     fig = plt.figure()
     # ax = fig.add_subplot(111, projection="3d")
     ax = fig.add_subplot(111,)
-    q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = [np.pi/6, np.pi/4], 0., 0., np.pi/6, 0., 0., np.pi/4, \
+    q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = [np.pi/6, np.pi/6], 0., 0., np.pi/6, 0., 0., np.pi/4, \
                                                                 np.array([1., 1., 0.]), np.array([0.5, 0.25, 0.])
     j_T_full = eom.position_vectors(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
     sat_centre = j_T_full[0, 0:3, 3]
     robot_base = j_T_full[1, 0:3, 3]
     # points = eom.draw_satellite(j_T_full[0], rad)
-    points = eom.draw_sat_rect(j_T_full[0], 2., 1.)
+    points = eom.draw_sat_rect(j_T_full[0], 1., 0.5)
     aa = points[:, 0]
     points = np.hstack((points, aa.reshape(-1, 1)))
     ax.plot(points[0, :], points[1, :])  # draw rectangular satellite
     # ax.plot([sat_centre[0], points[0, 0]], [sat_centre[1], points[1, 0]],)
-    ax.plot([0, 0.5], [0, 0.])  # inertial x axis
-    ax.plot([0, 0.], [0, 0.5])  # inertial y axis
+    ax.arrow(0, 0.0, 0.5, 0., head_width=0.05, head_length=0.1, fc='k', ec='k')  # inertial x axis
+    ax.arrow(0, 0., 0, 0.5, head_width=0.05, head_length=0.1, fc='k', ec='k')  # inertial y axis
     origin_vect = j_T_full[:, 0:3, 3]
     tmp = np.diff(origin_vect, axis=0)
+    sc = 0.25
     for i in range(j_T_full.shape[0]):
         trans_temp = j_T_full[i, 0:3, 3]
         rot_temp = j_T_full[i, 0:3, 0:3]
         ax.plot([0, trans_temp[0]], [0, trans_temp[1]])  # vector from {j} to each of the origins of {j_i} CS
-        ax.plot([trans_temp[0], trans_temp[0] + rot_temp[0, 0]], [trans_temp[1], trans_temp[1] + rot_temp[1, 0]])  # x axis of {j_i} th CS
-        ax.plot([trans_temp[0], trans_temp[0] + rot_temp[0, 1]], [trans_temp[1], trans_temp[1] + rot_temp[1, 1]])  # y axis of {j_i} th CS
+        # ax.plot([trans_temp[0], trans_temp[0] + rot_temp[0, 0]], [trans_temp[1], trans_temp[1] + rot_temp[1, 0]])  # x axis of {j_i} th CS
+        ax.arrow(trans_temp[0], trans_temp[1], sc * rot_temp[0, 0], sc * rot_temp[1, 0], head_width=0.05, head_length=0.1, fc='k', ec='k')  # x axis of {j_i} th CS
+        # ax.plot([trans_temp[0], trans_temp[0] + rot_temp[0, 1]], [trans_temp[1], trans_temp[1] + rot_temp[1, 1]])  # y axis of {j_i} th CS
+        ax.arrow(trans_temp[0], trans_temp[1], sc * rot_temp[0, 1], sc * rot_temp[1, 1], head_width=0.05, head_length=0.1, fc='k', ec='k')  # y axis of {j_i} th CS
 
-    for i in range(len(origin_vect) -1):
-        ax.plot([origin_vect[i, 0], origin_vect[i+1, 0]], [origin_vect[i, 1], origin_vect[i, i+1]])
+    for i in range(origin_vect.shape[0] - 1):
+        ax.plot([origin_vect[i, 0], origin_vect[i+1, 0]], [origin_vect[i, 1], origin_vect[i+1, 1]])
         # plt.arrow(temp[0] + temp1[0, 0], temp[1] + temp1[1, 0], temp[0] + temp1[0, 1], temp[1] + temp1[1, 1] )
     # ax.plot([sat_centre[0], 0], [sat_centre[1], 0],)
     # ax.plot([robot_base[0], 0], [robot_base[1], 0],)
     # ax.plot(points[0, 0], points[1, 0], 'b*')
     # ax.plot(sat_centre[0], sat_centre[1], 'r*')
     ax.axis('equal')
+    ax.set_ylim(0, 4)
     plt.show()
     print('hi')
 
