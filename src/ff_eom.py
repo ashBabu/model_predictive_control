@@ -41,7 +41,7 @@ class eom():
         S[2, 1] = w[0]
         return S
 
-    def robot_transformation_matrix(self, *args):  # general transformation matrix relating i to i+1^th CS using DH convention
+    def robot_transformation_matrix(self, *args):  # transformation matrix relating i to i+1^th CS using DH convention
         q, a, d, alpha = args
         c_q, s_q = np.cos(q), np.sin(q)
         c_alpha, s_alpha = np.cos(alpha), np.sin(alpha)
@@ -92,7 +92,8 @@ class eom():
         s_T_j1 = self.euler_transformation_mat(ang_xb, ang_yb, ang_zb, b0)  # a constant 4 x 4 matrix
         T_ee, T_joint = self.fwd_kin(q, self.a)  #
         j_T_j1 = j_T_s @ s_T_j1
-        j_T_full = np.zeros([self.numJoints+3, 4, 4])
+        j_T_full = np.zeros([self.numJoints+3, 4, 4])  # j_T_full is n x 4 x 4 transf. matrices
+        # containing satellite, robot base and each of the joint CS
         j_T_full[0, :, :] = j_T_s
         j_T_full[1, :, :] = j_T_j1
         k = 0
@@ -101,7 +102,7 @@ class eom():
             k += 1
         pv_origins = j_T_full[:, 0:3, 3]  # position vector of the origins of all coordinate system wrt inertial {j}
         pv_com = np.zeros((3, self.numJoints+1))  # position vector of the COM of
-                                                  # spacecraft + each of the links wrt inertial {j}
+        # spacecraft + each of the links wrt inertial {j}
         pv_com[:, 0] = r0
         kk = 1
         for i in range(2, j_T_full.shape[0] - 1):
@@ -128,34 +129,51 @@ class eom():
         points = centre.reshape(-1, 1) + rot @ np.hstack((p1, p2, p3, p4))
         return points
 
-    def geometric_jacobian(self, q):
-        T_ee, T_joint = self.fwd_kin(q)
-        # Jac = np.zeros([3, len(q)])  # initilizing jacobian for 2D
-        Jac = np.zeros([6, len(q)])  # initilizing jacobian for 3D
-        for i in range(len(q)):
-            pos_vec = T_ee[0:3, 3] - T_joint[i, 0:3, 3]
-            rot_axis = T_joint[i, 0:3, 2]
-            Jac[0:3, i] = np.cross(rot_axis, pos_vec)
-            Jac[3:6, i] = rot_axis
-        return Jac
-
-    def calculate_H_s(self, *args):
-        q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = args
-        j_T_full, pv_origins, pv_com = self.position_vectors(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
+    def calculate_j_I_i(self, *args):
+        # q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = args
+        j_T_full, pv_origins, pv_com = self.position_vectors(*args)
         R = j_T_full[0, 0:3, 0:3]
-        j_I_0 = R @ self.I[0] @ R.transpose() # transforming satellite MOI express in its COM to inertial, {j}
-        j_I = 0
+        j_I_i = np.zeros((self.numJoints, 3, 3))
         for i in range(2, j_T_full.shape[0] - 1):
             rot = j_T_full[i, 0:3, 0:3]  # rot matrix of joint CS wrt {j}. Here this CS is assumed to be same as CS at COM
-            temp = rot @ self.I[i-1] @ rot.transpose()  # transforming link MOI express in each COM to inertial, {j}
-            j_r_0i = pv_com[:, i-1] - r0
-            j_r_0ix = self.skew_matrix(j_r_0i)
-            j_I += temp - self.m[i - 1] * (j_r_0ix @ j_r_0ix)
+            j_I_i[i - 2, :, :] = rot @ self.I[i - 1] @ rot.transpose()
+        return j_I_i
+
+    def calculate_jr_0x(self, *args):  # skew-sym matrix of vector j_r_0i. j_r_0i is the vector from the spacecraft COM to each of the link COM
+        _, _, pv_com = self.position_vectors(*args)
+        j_r_0ix = np.zeros((self.numJoints, 3, 3))
+        for i in range(self.numJoints):
+            j_r_0i = pv_com[:, i+1] - pv_com[:, 0]
+            j_r_0ix[i, :, :] = self.skew_matrix(j_r_0i)
+        return j_r_0ix
+
+    def calculate_H_s(self, *args):
+        j_T_full, pv_origins, pv_com = self.position_vectors(*args)
+        R = j_T_full[0, 0:3, 0:3]
+        j_I_0 = R @ self.I[0] @ R.transpose() # transforming satellite MOI express in its COM to inertial, {j}
+        j_I_i = self.calculate_j_I_i(*args)
+        j_I = 0
+        j_r_0ix = self.calculate_jr_0x(*args)
+        for i in range(j_I_i.shape[0]):
+            j_I += j_I_i[i] - self.m[i + 1] * (j_r_0ix[i] @ j_r_0ix[i])
         return j_I + j_I_0
 
-    def rot_jacobian(self, *args):
-        q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = args
-        j_T_full, pv_origins, pv_com = self.position_vectors(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
+    def calculate_H_0(self, *args):
+        H_s = self.calculate_H_s(*args)
+        M = np.sum(self.m)
+        A = M * np.eye(3)
+        _, j_r_0c = self.system_com(*args)
+        j_r_0cx = self.skew_matrix(j_r_0c)
+        B = M * j_r_0cx
+        C = np.vstack((A, B))
+        D = np.vstack((-B, H_s))
+        H_0 = np.hstack((C, D))
+        return H_0
+
+
+    def jacobian(self, *args):
+        # q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = args
+        j_T_full, pv_origins, pv_com = self.position_vectors(*args)
         j_T_i = np.zeros((self.numJoints, 3, self.numJoints))  # Translational part of jacobian
         j_R_i = np.zeros((self.numJoints, 3, self.numJoints))  # Rotational part of jacobian
         num = np.arange(1, self.numJoints+1)
@@ -169,19 +187,42 @@ class eom():
                 j_R_i[i, :, j] = j_rot_axis[:, j]
         return j_R_i, j_T_i
 
-    def calculate_H_0m(self):
-        pass
+    def calculate_j_TS(self, *args):
+        _, j_T_i = self.jacobian(*args)
+        j_TS = 0
+        for i in range(j_T_i.shape[0]):
+            j_TS += self.m[i+1] * j_T_i[i]
+        return j_TS
 
-    def mass_matrix(self, q, rs, rq):
-        T_ee, T_joint = self.fwd_kin(q)
-        Jac = self.geometric_jacobian(q)
-        # I_infr = np.zeros([len(q), 3, 3])
-        J_T = Jac[0:3, :]
-        J_R = Jac[3:6, :]
-        for i in range(len(q)):
-            R = T_joint[i, 0:3, 0:3]
-            temp = np.dot(R, self.I[i])
-            I_infr = temp.dot(np.transpose(R))   # I in inertial frame. here with respect to base (for testing)
+    def calculate_H_sq(self, *args):
+        j_I_i = self.calculate_j_I_i(*args)
+        j_R_i, j_T_i = self.jacobian(*args)
+        j_r_0ix = self.calculate_jr_0x(*args)
+        H_sq = 0
+        for i in range(self.numJoints):
+            H_sq += j_I_i[i] @ j_R_i[i] + self.m[i + 1] * (j_r_0ix[i] @ j_T_i[i])
+        return H_sq
+
+    def calculate_H_0m(self, *args):
+        j_TS = self.calculate_j_TS(*args)
+        H_sq = self.calculate_H_sq(*args)
+        H_0m = np.vstack((j_TS, H_sq))
+        return H_0m
+
+    def calculate_H_m(self, *args):
+        j_I_i = self.calculate_j_I_i(*args)
+        j_R_i, j_T_i = self.jacobian(*args)
+        H_m = 0
+        for i in range(j_T_i.shape[0]):
+            H_m += j_R_i[i].transpose() @ j_I_i[i] @ j_R_i + self.m[i+1] * j_T_i.transpose() @ j_T_i
+        return H_m
+
+    def calculate_H_star(self, *args):
+        H_m = self.calculate_H_m(*args)
+        H_0m = self.calculate_H_0m(*args)
+        H_0 = self.calculate_H_0(*args)
+        H_star = H_m - H_0m.transpose() @ np.linalg.solve(H_0, H_0m)
+        return H_star
 
     def plotter(self, ax, points, j_T_full, pv_origins, pv_com, j_r_c):
         ax.plot(points[0, :], points[1, :])  # draw rectangular satellite
@@ -225,7 +266,9 @@ if __name__ == '__main__':
     # j_r_c is  the vector from {j} to system COM and j_r_0c is the vector from satellite COM to system COM
     j_r_c, j_r_0c = eom.system_com(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
     H_s = eom.calculate_H_s(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
-    rot_jac = eom.rot_jacobian(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
+    H_sq = eom.calculate_H_sq(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
+    H_0m = eom.calculate_H_0m(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
+    H_0 = eom.calculate_H_0(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
     eom.plotter(ax, points, j_T_full, pv_origins, pv_com, j_r_c)
 
     plt.show()
