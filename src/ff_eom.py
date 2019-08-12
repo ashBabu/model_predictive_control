@@ -269,6 +269,7 @@ if __name__ == '__main__':
     H_sq = eom.calculate_H_sq(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
     H_0m = eom.calculate_H_0m(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
     H_0 = eom.calculate_H_0(q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0)
+    print('SpaceCraftMassMatrix = \n', H_0)
     eom.plotter(ax, points, j_T_full, pv_origins, pv_com, j_r_c)
 
     plt.show()
