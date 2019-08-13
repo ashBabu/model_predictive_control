@@ -183,12 +183,12 @@ class dynamics():
         w, com_vel, _ = self.kin.velocities()
         K = 0
         for i in range(self.nDoF + 1):
-            K += 0.5*self.m[i]*com_vel[:, i].dot(cm_vel[:, i]) + 0.5*w[:, i].dot(j_I[i] @ w[:, i])
+            K += 0.5*self.m[i]*com_vel[:, i].dot(com_vel[:, i]) + 0.5*w[:, i].dot(j_I[i] @ w[:, i])
         return K
 
     def get_dyn_para(self):
         K = self.kinetic_energy()
-        q, qd = kin.q, kin.qd
+        q, qd = self.kin.q, self.kin.qd
         # P = self.potential_energy()
         L = K   # Lagrangian. Potential energy at space is insignificant (microgravity envrnt)
         M = transpose(Matrix([[K]]).jacobian(qd)).jacobian(qd) #.applyfunc(trigsimp)  # Mass matrix
