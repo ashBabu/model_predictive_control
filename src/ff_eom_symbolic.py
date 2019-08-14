@@ -29,16 +29,20 @@ class kinematics():
         self.alpha = Array([0.0, 0.0])
 
         self.r_sx, self.r_sy, self.r_sz, = dynamicsymbols('r_sx r_sy r_sz')  # r_s = satellite pos_vec wrt inertial
-        self.w_sx, self.w_sy, self.w_sz = dynamicsymbols('w_sx w_sy w_sz')  # w_s = satellite ang position wrt inertial
+        self.ang_xs, self.ang_ys, self.ang_zs = dynamicsymbols("ang_xs ang_ys ang_zs ")
         self.r_sxd, self.r_syd, self.r_szd, = dynamicsymbols('r_sx r_sy r_sz', 1)  # satellite linear vel wrt inertial
-        self.w_sxd, self.w_syd, self.w_szd = dynamicsymbols('w_sx w_sy w_sz', 1)  # satellite angular vel wrt inertial
-        self.q = Matrix([self.r_sx, self.r_sy, self.r_sz, self.w_sx, self.w_sy, self.w_sz, *self.qm])
+        self.w_sxd, self.w_syd, self.w_szd = dynamicsymbols("ang_xs ang_ys ang_zs ", 1)  # satellite angular vel wrt inertial
+        self.q = Matrix([self.r_sx, self.r_sy, self.r_sz, self.ang_xs, self.ang_ys, self.ang_zs, *self.qm])
         self.qd = [self.r_sxd, self.r_syd, self.r_szd, self.w_sxd, self.w_syd, self.w_szd, *self.qdm]
+
+        self.rx = symbols(["r%d" % x for x in range(1, nDoF+1)])  # x component of COM vector of the links
+
 
         self.q_i = Symbol("q_i")
         self.alpha_i = Symbol("alpha_i")
         self.a_i = Symbol("a_i")
         self.d_i = Symbol("d_i")
+        self.ang_xb, self.ang_yb, self.ang_zb, self.b0x, self.b0y, self.b0z = symbols("ang_xb ang_yb ang_zb b0x b0y b0z")
         self.ang_x, self.ang_y, self.ang_z, self.r0x, self.r0y, self.r0z = symbols("ang_x ang_y ang_z r0x, r0y, r0z")
         # self.b0 = np.array([0.2, 0.3, 0.])  # vector from the spacecraft COM to the base of the robot in spacecraft CS
 
@@ -94,9 +98,7 @@ class kinematics():
     def position_vectors(self,): # position vectors of COM of each link wrt inertial CS, {j}
         # {s}, {ji} are respectively the CS of spacecraft at its COM and joint CS of the manipulator
         # q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = args
-        self.ang_xs, self.ang_ys, self.ang_zs, self.r0x, self.r0y, self.r0z = symbols("ang_xs ang_ys ang_zs r0x, r0y, r0z")
-        self.ang_xb, self.ang_yb, self.ang_zb, self.b0x, self.b0y, self.b0z = symbols("ang_xb ang_yb ang_zb b0x b0y b0z")
-        j_T_s = self.euler_transformations([self.ang_xs, self.ang_ys, self.ang_zs, self.r0x, self.r0y, self.r0z])
+        j_T_s = self.euler_transformations([self.ang_xs, self.ang_ys, self.ang_zs, self.r_sx, self.r_sy, self.r_sz])
         s_T_j1 = self.euler_transformations([self.ang_xb, self.ang_yb, self.ang_zb, self.b0x, self.b0y, self.b0z])  # a constant 4 x 4 matrix
         j_T_j1 = j_T_s @ s_T_j1  # transformation from inertial to robot base
         T_joint, T_i_i1 = self.fwd_kin_symbolic(self.qm)  #
@@ -147,10 +149,12 @@ class dynamics():
 
     def __init__(self, nDoF=2):
         self.nDoF = nDoF
+        self.Is_xx, self.Is_yy, self.Is_zz = symbols('Is_xx, Is_yy, Is_zz')
+        self.Ixx = symbols(["Ixx%d" % x for x in range(1, nDoF+1)])  # x component of MOI of the links about its COm
+        self.Iyy = symbols(["Iyy%d" % x for x in range(1, nDoF+1)])  # y component of MOI of the links about its COm
+        self.Izz = symbols(["Izz%d" % x for x in range(1, nDoF+1)])  # z component of MOI of the links about its COm
+        self.m = symbols(["m%d" % x for x in range(nDoF+1)])   # mass of space-craft and each of the links
         self.tau, self.I = self.initializing(nDoF)
-        self.g = symbols('g', positive=True)
-        self.mn = [3, 1] #############################
-        self.grav = transpose(Matrix([[0, self.g, 0]]))
 
         self.kin = kinematics()
         # self.M, self.C, self.G = self.get_dyn_para(self.kin.q, self.kin.qd)
@@ -159,15 +163,14 @@ class dynamics():
         # q = dynamicsymbols('q:{0}'.format(nDoF))
         # r = dynamicsymbols('r:{0}'.format(nDoF))
         # for i in range(1, nDoF+1):
-        Izz = symbols(["I%d" % x for x in range(1, nDoF+1)])  # z component of MOI of the links about its COm
-        self.m = symbols(["m%d" % x for x in range(nDoF+1)])   # mass of space-craft and each of the links
         tau = symbols(["tau%d" % x for x in range(1, nDoF+1)])   # mass of space-craft and each of the links
         I = []
         [I.append(zeros(3)) for i in range(nDoF+1)]  # MOI matrix for the satellite and each of the links
-        self.Is_xx, self.Is_yy, self.Is_zz = symbols('Is_xx, Is_yy, Is_zz')
         I[0][0, 0], I[0][1, 1], I[0][2, 2] = self.Is_xx, self.Is_yy, self.Is_zz
         for i in range(nDoF):
-            I[i+1][2, 2] = Izz[i]
+            I[i+1][0, 0] = self.Ixx[i]
+            I[i+1][1, 1] = self.Iyy[i]
+            I[i+1][2, 2] = self.Izz[i]
         return tau, I
 
     def kinetic_energy(self):
