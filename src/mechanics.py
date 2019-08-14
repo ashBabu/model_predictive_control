@@ -3,7 +3,6 @@ from sympy import *
 from sympy.physics.mechanics import *
 from sympy.tensor.array import Array
 from decimal import getcontext
-# import cvxpy as cp
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 import scipy.optimize as opt
@@ -30,11 +29,11 @@ class kinematics():
         # COM vectors
         self.r1, self.r2 = symbols('r1 r2')
         self.r11 = zeros(3, 1)
-        # self.r11[0] = self.r1
-        self.r11[0] = 1  ################################
+        self.r11[0] = self.r1
+        # self.r11[0] = 1  ################################
         self.r22 = zeros(3, 1)
-        # self.r22[0] = self.r2
-        self.r22[0] = 1  #################################
+        self.r22[0] = self.r2
+        # self.r22[0] = 1  #################################
         self.r = zeros(3, 2)
         self.r[:, 0] = self.r11
         self.r[:, 1] = self.r22
@@ -149,6 +148,7 @@ class kinematics():
         for i in range(len(q)):
             R = t_i_i1[i][0:3, 0:3].transpose()
             omega[:, i+1] = R * omega[:, i] + Matrix([[0], [0], [self.qd[i]]])
+            # omega[:, i+1] = R * omega[:, i] + Matrix([[0], [0], [self.qd[i]]])
             joint_velocity[:, i+1] = R * (joint_velocity[:, i] + omega[:, i].cross(t_i_i1[i][0:3, 3]))
         omega, joint_velocity = omega[:, 1:], joint_velocity[:, 1:]
         for i in range(len(q)):
@@ -162,8 +162,8 @@ class dynamics():
     def __init__(self):
         self.tau_1, self.tau_2, self.I1_zz, self.I2_zz, self.m1, self.m2 = symbols('tau_1 tau_2 I1_zz, I2_zz, m1, m2')
         self.g = symbols('g', positive=True)
-        # self.m = [self.m1, self.m2]
-        self.m = [3, 1] #############################
+        self.m = [self.m1, self.m2]
+        # self.m = [3, 1] #############################
         self.grav = transpose(Matrix([[0, self.g, 0]]))
 
         # Inertia tensor wrt centre of mass of each link
@@ -177,7 +177,6 @@ class dynamics():
 
         self.kin = kinematics()
         self.M, self.C, self.G = self.get_dyn_para(self.kin.q, self.kin.qd)
-
 
     def kinetic_energy(self, q):
         w, cm_vel, _ = self.kin.velocities(q)
@@ -228,9 +227,9 @@ if __name__ == '__main__':
     kin = kinematics()
     dyn = dynamics()
     lp, qp, q_dot = [1, 1], [0, np.pi/2], [0.1, 0.2]
-    # M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
-    M, C, G = dyn.dyn_para_numeric(lp, qp, q_dot)  # Numeric values dynamic parameters
-    print ('hi')
+    M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
+    # M, C, G = dyn.dyn_para_numeric(lp, qp, q_dot)  # Numeric values dynamic parameters
+    print('hi')
 
 
 
