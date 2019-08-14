@@ -103,6 +103,7 @@ if __name__ == '__main__':
     inp = np.zeros((2, q.shape[1]))
     for i in range(q.shape[1]):
         M, C, G = two_R.dyn.dyn_para_numeric(lp, q[:, i], q_dot[:, i])
+        # need to provide values for m1, m2, r1, r2 for the following line to evaluate
         M, C, G = np.array(M).astype(np.float64), np.array(C).astype(np.float64), np.array(G).astype(np.float64)
         temp = M @ U[:, i].reshape((2, 1)) + C + G
         inp[:, i] = temp[0, 0], temp[1, 0]
