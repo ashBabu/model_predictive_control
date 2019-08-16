@@ -77,7 +77,7 @@ class SolveEom:
 
 
 if __name__ == '__main__':
-    nDoF = 2
+    nDoF = 4
     t = np.linspace(0, 3, 10)
     seom = SolveEom(nDoF)
     y1 = seom.solve_ode()
@@ -92,9 +92,9 @@ if __name__ == '__main__':
     plt.plot(t, r_sy, 'b--', linewidth=2, label='y_position')
     plt.plot(t, ang_sz, 'g:', linewidth=2,label='z_angle')
 
-    plt.plot(t, v_sx, 'r-', linewidth=2, label='x_vel')
-    plt.plot(t, v_sy, 'b--', linewidth=2, label='y_vel')
-    plt.plot(t, w_sz, 'g:', linewidth=2,label='z_ang_vel')
+    plt.plot(t, v_sx, 'r^', linewidth=2, label='x_vel')
+    plt.plot(t, v_sy, 'bo', linewidth=2, label='y_vel')
+    plt.plot(t, w_sz, 'g*', linewidth=2,label='z_ang_vel')
     plt.xlabel('time')
     plt.ylabel('y(t)')
     plt.legend()
