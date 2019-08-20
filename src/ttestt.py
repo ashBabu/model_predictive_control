@@ -30,14 +30,42 @@ class testing():
             # rb = robot base or joint 0 {j0}
         return rot_full
 
+    def com_pos_vect(self):
+        # rs, r1, r2 etc are pv from inertial to COM of spacecraft, link1, lin2, ...
+        k11 = self.dyn.mass_frac()
+        rot_full = self.rotations_from_inertial()
+        rot_full.remove(rot_full[1])  # rot_full = [0_R_s, 0_R_j1, 0_R_j2, ...].
+        a, b = self.kin.ab_vectors()
+        r0 = zeros(3, 1)
+        pv_com = zeros(3, self.nDoF+1)
+        for i in range(self.nDoF):
+            r0 += k11[i] * (rot_full[i] @ b[:, i] + rot_full[i+1] @ a[:, i])
+            # r0 += k11[i] * (b[:, i] + a[:, i])
+        pv_com[:, 0] = r0
+        for i in range(1, self.nDoF+1):
+            # temp = pv_com[:, i-1] + b[:, i-1] + a[:, i-1]
+            pv_com[:, i] = pv_com[:, i-1] + rot_full[i-1] @ b[:, i-1] + rot_full[i] @ a[:, i-1]
+            # temp.applyfunc(simplify)
+        return pv_com
+
+
     def velocities(self):
         ws = Matrix([[self.kin.w_sxd], [self.kin.w_syd], [self.kin.w_szd]])
-        j_omega = zeros(3, self.nDoF+1)
+        j_omega = zeros(3, self.nDoF+1)  # matrix containing ang vel of spacecraft + each of the links wrt inertial
         j_omega[:, 0] = ws
         rot_full = self.rotations_from_inertial()
         for i in range(1, self.nDoF+1):
             temp = rot_full[i+1][:, 2] * self.kin.qdm[i-1]
-            j_omega[:, i] = j_omega[:, i-1] + temp
+            j_omega[:, i] = j_omega[:, i-1] + temp  # j_w = [0_w_s, 0_w_j1, 0_w_j2, ...]
+            # omega_skew_sym = self.kin.skew_matrix()
+        j_vel_com = zeros(3, self.nDoF+1)  # matrix of linear vel of spacecraft + each of the links wrt inertial
+        k11 = self.dyn.mass_frac()
+        r0_d = zeros(3, 1)
+        a, b = self.kin.ab_vectors()
+
+        for i in range(self.nDoF):
+            r0_d += k11[i] * (rot_full[i] @ b[:, i] + rot_full[i+1] @ a[:, i])
+            # j_vel_com[:, 0] =
         return j_omega
 
     def plotter(self, rect, rot_full):
@@ -64,24 +92,6 @@ class testing():
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.show()
-
-    def com_pos_vect(self):
-        # rs, r1, r2 etc are pv from inertial to COM of spacecraft, link1, lin2, ...
-        k11 = self.dyn.mass_frac()
-        rot_full = self.rotations_from_inertial()
-        rot_full.remove(rot_full[1])  # rot_full = [0_R_s, 0_R_j1, 0_R_j2, ...].
-        a, b = self.kin.ab_vectors()
-        r0 = zeros(3, 1)
-        pv_com = zeros(3, self.nDoF+1)
-        for i in range(self.nDoF):
-            r0 += k11[i] * (rot_full[i] @ b[:, i] + rot_full[i+1] @ a[:, i])
-            # r0 += k11[i] * (b[:, i] + a[:, i])
-        pv_com[:, 0] = r0
-        for i in range(1, self.nDoF+1):
-            # temp = pv_com[:, i-1] + b[:, i-1] + a[:, i-1]
-            pv_com[:, i] = pv_com[:, i-1] + rot_full[i-1] @ b[:, i-1] + rot_full[i] @ a[:, i-1]
-            # temp.applyfunc(simplify)
-        return pv_com
 
 
 if __name__ == '__main__':
