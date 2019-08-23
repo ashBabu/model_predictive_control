@@ -29,11 +29,11 @@ class kinematics():
         # COM vectors
         self.r1, self.r2 = symbols('r1 r2')
         self.r11 = zeros(3, 1)
-        self.r11[0] = self.r1
-        # self.r11[0] = 1  ################################
+        # self.r11[0] = self.r1
+        self.r11[0] = 1  ################################
         self.r22 = zeros(3, 1)
-        self.r22[0] = self.r2
-        # self.r22[0] = 1  #################################
+        # self.r22[0] = self.r2
+        self.r22[0] = 1  #################################
         self.r = zeros(3, 2)
         self.r[:, 0] = self.r11
         self.r[:, 1] = self.r22
@@ -162,8 +162,8 @@ class dynamics():
     def __init__(self):
         self.tau_1, self.tau_2, self.I1_zz, self.I2_zz, self.m1, self.m2 = symbols('tau_1 tau_2 I1_zz, I2_zz, m1, m2')
         self.g = symbols('g', positive=True)
-        self.m = [self.m1, self.m2]
-        # self.m = [3, 1] #############################
+        # self.m = [self.m1, self.m2]
+        self.m = [3, 1] #############################
         self.grav = transpose(Matrix([[0, self.g, 0]]))
 
         # Inertia tensor wrt centre of mass of each link

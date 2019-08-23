@@ -2,7 +2,7 @@ import numpy as np
 import sympy as sp
 import scipy.optimize as opt
 from scipy.linalg import block_diag
-from mechanics import dynamics, kinematics
+from mechanics_2DOF import dynamics, kinematics
 import matplotlib.pyplot as plt
 
 # Model Predictive Control : Currently, the prediction and control horizon are set the same with N

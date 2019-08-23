@@ -8,6 +8,7 @@ from mpl_toolkits import mplot3d
 
 
 class eom():
+
     def __init__(self):
         self.numJoints = 2
         self.m_s, self.m1, self.m2 = 10, 4, 3   # m_s = spacecraft mass, m_i = mass of i^th link

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpc_optimizer import mpc_opt
-from mechanics import dynamics, kinematics
+from mechanics_2DOF import dynamics, kinematics
 
 
 class Rmanip_mpc():
