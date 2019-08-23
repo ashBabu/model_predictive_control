@@ -1,4 +1,6 @@
 deep_learning/
+.ipynb_checkpoints/
+.idea/
 *.pyc
 *.xml
 *.aux
