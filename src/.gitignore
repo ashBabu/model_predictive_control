@@ -1,0 +1,6 @@
+deep_learning/
+*.pyc
+*.xml
+*.aux
+*.log
+*.gz
