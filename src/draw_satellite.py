@@ -1,84 +1,67 @@
-# import numpy as np
-# import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import Axes3D
-# from itertools import product, combinations
-# from scipy.spatial.transform import Rotation as R
-#
-# fig = plt.figure()
-# ax = fig.gca(projection='3d')
-# ax.set_aspect("equal")
-#
-#
-# # draw cube
-# def draw_cube(*args):
-#     ang_xs, ang_ys, ang_zs, rs_x, rs_y, rs_z = args
-#     r = [0, 1]
-#     for i in range(len(ang_xs)):
-#         Rx = R.from_rotvec(ang_xs[i] * np.array([1, 0, 0]))
-#         Rx = Rx.as_dcm()
-#         Ry = R.from_rotvec(ang_ys[i] * np.array([0, 1, 0]))
-#         Ry = Ry.as_dcm()
-#         Rz = R.from_rotvec(ang_zs[i] * np.array([0, 0, 1]))
-#         Rz = Rz.as_dcm()
-#         Rt = Rx @ Ry @ Rz
-#
-#         for s, e in combinations(np.array(list(product(r, r, r))), 2):
-#             if np.sum(np.abs(s-e)) == r[1]-r[0]:
-#                 s, e = Rt.dot(s), Rt.dot(e)
-#                 ax.plot3D(*zip(s, e), color="b")
-#                 # plt.gca().set_aspect('equal', adjustable='box')
-#             scale = 2
-#             ax.set_xlim(-1 * scale, 1 * scale)
-#             ax.set_ylim(-1 * scale, 1 * scale)
-#         plt.xlabel('X')
-#         plt.ylabel('Y')
-#         plt.pause(0.4)
-#
-# aa = np.pi
-# ang_xs, ang_ys, ang_zs, rs_x, rs_y, rs_z = np.array([0, 0, 0, 0]), np.array([0, 0, 0, 0]), np.array([0, 0.01*aa, 0.05*aa, 0.1*aa]), 0., 0., 0.
-# draw_cube(ang_xs, ang_ys, ang_zs, rs_x, rs_y, rs_z)
-# plt.show()
-
-
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.animation as animation
 
-def cuboid_data(o, size=(1,1,1)):
-    # code taken from
-    # https://stackoverflow.com/a/35978146/4124317
-    # suppose axis direction: x: to left; y: to inside; z: to upper
-    # get the length, width, and height
-    l, w, h = size
-    x = [[o[0], o[0] + l, o[0] + l, o[0], o[0]],
-         [o[0], o[0] + l, o[0] + l, o[0], o[0]],
-         [o[0], o[0] + l, o[0] + l, o[0], o[0]],
-         [o[0], o[0] + l, o[0] + l, o[0], o[0]]]
-    y = [[o[1], o[1], o[1] + w, o[1] + w, o[1]],
-         [o[1], o[1], o[1] + w, o[1] + w, o[1]],
-         [o[1], o[1], o[1], o[1], o[1]],
-         [o[1] + w, o[1] + w, o[1] + w, o[1] + w, o[1] + w]]
-    z = [[o[2], o[2], o[2], o[2], o[2]],
-         [o[2] + h, o[2] + h, o[2] + h, o[2] + h, o[2] + h],
-         [o[2], o[2], o[2] + h, o[2] + h, o[2]],
-         [o[2], o[2], o[2] + h, o[2] + h, o[2]]]
-    return np.array(x), np.array(y), np.array(z)
 
-def plotCubeAt(pos=(0,0,0), size=(1,1,1), ax=None,**kwargs):
-    # Plotting a cube element at position pos
-    if ax !=None:
-        X, Y, Z = cuboid_data(pos, size )
-        ax.plot_surface(X, Y, Z, rstride=1, cstride=1, **kwargs)
+class satellite_plotter():
 
-positions = [(0, 0, 0)]
-sizes = [(2,2,2), (3,3,7)]
-colors = ["crimson","limegreen"]
+    def __init__(self, pos, size):
+        pass
 
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-ax.set_aspect('equal')
+    def cuboid_data(self, o, size=(1, 1, 1)):  # o is the centre of the cuboid
+        l, w, h = size
+        x = [[o[0] - l/2, o[0] + l/2, o[0] + l/2, o[0] - l/2, o[0] - l/2],
+             [o[0] - l/2, o[0] + l/2, o[0] + l/2, o[0] - l/2, o[0] - l/2],
+             [o[0] - l/2, o[0] + l/2, o[0] + l/2, o[0] - l/2, o[0] - l/2],
+             [o[0] - l/2, o[0] + l/2, o[0] + l/2, o[0] - l/2, o[0] - l/2]]
+        y = [[o[1] - w/2, o[1] - w/2, o[1] + w/2, o[1] + w/2, o[1] - w/2],
+             [o[1] - w/2, o[1] - w/2, o[1] + w/2, o[1] + w/2, o[1] - w/2],
+             [o[1] - w/2, o[1] - w/2, o[1] - w/2, o[1] - w/2, o[1] - w/2],
+             [o[1] + w/2, o[1] + w/2, o[1] + w/2, o[1] + w/2, o[1] + w/2]]
+        z = [[o[2] - h/2, o[2] - h/2, o[2] - h/2, o[2] - h/2, o[2] - h/2],
+             [o[2] + h/2, o[2] + h/2, o[2] + h/2, o[2] + h/2, o[2] + h/2],
+             [o[2] - h/2, o[2] - h/2, o[2] + h/2, o[2] + h/2, o[2] - h/2],
+             [o[2] - h/2, o[2] - h/2, o[2] + h/2, o[2] + h/2, o[2] - h/2]]
+        return np.array(x), np.array(y), np.array(z)
 
-for p,s,c in zip(positions,sizes,colors):
-    plotCubeAt(pos=p, size=s, ax=ax, color=c)
+    def plotCubeAt(self, rot_ang, pos=(0, 0, 0), size=(1,1,1), ax=None,**kwargs):
+        # Plotting a cube element at position pos
+        Rz = R.from_rotvec(rot_ang * np.array([0, 0, 1]))
+        Rz = Rz.as_dcm()
+        if ax !=None:
+            X, Y, Z = self.cuboid_data(pos, size)
+            sh = X.shape
+            x, y, z = X.reshape(-1), Y.reshape(-1), Z.reshape(-1)
+            m = np.stack((x, y, z))
+            mr = Rz @ m
+            x, y, z = mr[0, :].reshape(sh), mr[1, :].reshape(sh), mr[2, :].reshape(sh)
+            ax.plot_surface(x, y, z, rstride=1, cstride=1, **kwargs)
+            plt.xlabel('X')
+            plt.ylabel('Y')
+            ax.axis('equal')
+            ax.set_zlim(-1.5, 1.5)
+            ax.set_ylim(-1.5, 1.5)
+            ax.set_xlim(-2.5, 2.5)
+            # ax.plot_surface(X, Y, Z, rstride=1, cstride=1, **kwargs)
 
-plt.show()
+    def call_plot(self, pos, size, colors, rot_angle):
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.set_aspect('equal')
+
+        for i in range(len(rot_angle)):
+            for p, s, c in zip(pos, size, colors):
+                    self.plotCubeAt(rot_angle[i], pos=p, size=s, ax=ax, color=c)
+            plt.pause(0.1)
+            plt.cla()
+
+
+if __name__ == '__main__':
+    rot_angle = np.linspace(0, 2*np.pi/4, 50)
+    positions = [(0, 0, 0)]
+    sizes = [(2, 2, 2), (3, 3, 7)]
+    sat_plot = satellite_plotter(positions, sizes)
+    colors = ["crimson", "limegreen"]
+    sat_plot.call_plot(positions, sizes, colors, rot_angle)
