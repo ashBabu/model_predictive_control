@@ -2,10 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.animation as animation
 
 
-class satellite_plotter():
+class SatellitePlotter(object):
 
     def __init__(self, pos, size):
         pass
@@ -26,11 +25,11 @@ class satellite_plotter():
              [o[2] - h/2, o[2] - h/2, o[2] + h/2, o[2] + h/2, o[2] - h/2]]
         return np.array(x), np.array(y), np.array(z)
 
-    def plotCubeAt(self, rot_ang, pos=(0, 0, 0), size=(1,1,1), ax=None,**kwargs):
+    def plotCubeAt(self, rot_ang, pos=(0, 0, 0), size=(1, 1, 1), ax=None, **kwargs):
         # Plotting a cube element at position pos
         Rz = R.from_rotvec(rot_ang * np.array([0, 0, 1]))
         Rz = Rz.as_dcm()
-        if ax !=None:
+        if ax is not None:
             X, Y, Z = self.cuboid_data(pos, size)
             sh = X.shape
             x, y, z = X.reshape(-1), Y.reshape(-1), Z.reshape(-1)
@@ -44,16 +43,14 @@ class satellite_plotter():
             ax.set_zlim(-1.5, 1.5)
             ax.set_ylim(-1.5, 1.5)
             ax.set_xlim(-2.5, 2.5)
-            # ax.plot_surface(X, Y, Z, rstride=1, cstride=1, **kwargs)
 
-    def call_plot(self, pos, size, colors, rot_angle):
+    def call_plot(self, pos, size, color, rot_ang):
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.set_aspect('equal')
-
-        for i in range(len(rot_angle)):
-            for p, s, c in zip(pos, size, colors):
-                    self.plotCubeAt(rot_angle[i], pos=p, size=s, ax=ax, color=c)
+        for i in range(len(rot_ang)):
+            for p, s, c in zip(pos, size, color):
+                self.plotCubeAt(rot_ang[i], pos=p, size=s, ax=ax, color=c)
             plt.pause(0.1)
             plt.cla()
 
@@ -62,6 +59,6 @@ if __name__ == '__main__':
     rot_angle = np.linspace(0, 2*np.pi/4, 50)
     positions = [(0, 0, 0)]
     sizes = [(2, 2, 2), (3, 3, 7)]
-    sat_plot = satellite_plotter(positions, sizes)
+    sat_plot = SatellitePlotter(positions, sizes)
     colors = ["crimson", "limegreen"]
     sat_plot.call_plot(positions, sizes, colors, rot_angle)
