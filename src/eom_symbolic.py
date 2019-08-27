@@ -2,7 +2,6 @@ import numpy as np
 from sympy import *
 from sympy.physics.mechanics import *
 from sympy.tensor.array import Array
-from decimal import getcontext
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
@@ -384,11 +383,31 @@ class dynamics():
         return M, C
 
 
+class Solver(object):
+
+    def __init__(self):
+        self.kin = kinematics()
+        self.dyn = dynamics()
+
+    def numerical_integration(self, m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric, t):
+        dt = t[1] - t[0]
+        omega_s = self.dyn.calculate_spacecraft_ang_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+        v_s = self.dyn.calculate_spacecraft_lin_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+        ang_s, r_s = zeros(omega_s.shape), zeros(v_s.shape)
+
+        for i in range(omega_s.shape[1]):
+            ang_s[:, i] += omega_s[:, i] * dt
+            r_s[:, i] += v_s[:, i] * dt
+            # velocity.append(velocity[-1] + acc * time)
+        return ang_s, r_s
+
+
 if __name__ == '__main__':
 
     nDoF = 2
     kin = kinematics(nDoF=nDoF)
     dyn = dynamics(nDoF=nDoF)
+    solver = Solver()
     lp, qp, q_dot = [1, 1], [0, np.pi/2], [0.1, 0.2]
     # T_joint, T_i_i1 = kin.fwd_kin_symbolic(qp)
     # j_T_full, pv_origins, pv_com = kin.position_vectors()
@@ -412,8 +431,9 @@ if __name__ == '__main__':
     pv_com = dyn.com_pos_vect()
     ang_vel, lin_vel = dyn.velocities_frm_momentum_conservation()
 
-    omega_s = dyn.calculate_spacecraft_ang_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
-    v_s = dyn.calculate_spacecraft_lin_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+    # omega_s = dyn.calculate_spacecraft_ang_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+    # v_s = dyn.calculate_spacecraft_lin_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+    ang_s, r_s = solver.numerical_integration(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric, t)
 
     # kin_energy = dyn.kinetic_energy()
     M, C = dyn.get_dyn_para()

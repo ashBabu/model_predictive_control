@@ -1,12 +1,12 @@
 import numpy as np
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
-from ff_eom_symbolic import dynamics, kinematics
+from eom_symbolic import dynamics, kinematics
 from sympy import *
 from sympy.physics.mechanics import *
-import dill
-dill.settings['recurse'] = True
-import pickle
+# import dill
+# dill.settings['recurse'] = True
+# import pickle
 
 
 class SolveEom:

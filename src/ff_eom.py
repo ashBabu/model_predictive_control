@@ -171,7 +171,6 @@ class eom():
         H_0 = np.hstack((C, D))
         return H_0
 
-
     def jacobian(self, *args):
         # q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = args
         j_T_full, pv_origins, pv_com = self.position_vectors(*args)
