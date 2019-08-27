@@ -51,10 +51,7 @@ class DH_plotter():
 
 
 if __name__ == '__main__':
-    current_joint_values = np.zeros(8) #+ 0.01 * np.random.random(7)
-    ang_deg = 60
-    # desired_joint_values = [np.pi*ang_deg/180, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    desired_joint_values = [np.pi * ang_deg / 180, np.pi / 3, 0.0, np.pi / 6, np.pi / 6, np.pi / 6, np.pi / 6, ]
+
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
@@ -63,9 +60,10 @@ if __name__ == '__main__':
     # q = np.zeros(8)
     robot = '3DOF'
     nDoF = 3
-    q = np.array([np.pi/4, np.pi/2, np.pi/2])
-    franka_kin = DH_plotter(nDoF, robot)
-    T_joint = franka_kin.robot_DH_matrix(q)
-    franka_kin.plotter(ax, T_joint, 'desired', color='blue')
+    # the manipulator is a straight line when the joint angles are [0, 90, , 0]
+    q = np.array([np.pi/4*0, np.pi/2, np.pi/2*0])
+    dh_plotter = DH_plotter(nDoF, robot)
+    T_joint = dh_plotter.robot_DH_matrix(q)
+    dh_plotter.plotter(ax, T_joint, 'desired', color='blue')
 
     plt.show()

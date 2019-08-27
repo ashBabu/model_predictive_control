@@ -62,3 +62,4 @@ if __name__ == '__main__':
     sat_plot = SatellitePlotter(positions, sizes)
     colors = ["crimson", "limegreen"]
     sat_plot.call_plot(positions, sizes, colors, rot_angle)
+

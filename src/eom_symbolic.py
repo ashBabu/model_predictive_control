@@ -311,8 +311,27 @@ class dynamics():
         pv_com = self.com_pos_vect()
         L = zeros(3, 1)
         for i in range(self.nDoF + 1):
-            L += I[i] @ j_omega[:, i] + self.m[i] * pv_com[:, i].cross(j_vel_com[:, i])
+            L += I[i] @ j_omega[:, i]  # + self.m[i] * pv_com[:, i].cross(j_vel_com[:, i])
         return L
+
+    def calculate_spacecraft_ang_vel(self, m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric):
+        L = self.ang_momentum_conservation()
+        qd = self.kin.qd[3:]
+        qd_s, qd_m = qd[0:3], qd[3:]
+        L_num = msubs(L, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.l[0]: l[0], self.kin.l[1]: l[1],
+                          self.m[0]: m[0], self.m[1]: m[1], self.m[2]: m[2], self.Is_xx: I[0], self.Is_yy: I[1],
+                          self.Is_zz: I[2], self.Ixx[0]: I[3], self.Ixx[1]: I[4], self.Iyy[0]: I[5], self.Iyy[1]: I[6],
+                          self.Izz[0]: I[7], self.Izz[1]: I[8], self.kin.ang_xs: ang_s[0], self.kin.ang_ys: ang_s[1],
+                          self.kin.ang_zs: ang_s[2], self.kin.ang_xb: ang_b[0], self.kin.ang_yb: ang_b[1],
+                          self.kin.ang_zb: ang_b[2], self.kin.r_sx: r_s[0], self.kin.r_sy: r_s[1],
+                          self.kin.r_sz: r_s[2], self.kin.q[-2]: q[0], self.kin.q[-1]: q[1]})
+        Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
+        Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
+        shp = qdm_numeric.shape[1]
+        omega_s = np.zeros((3, shp))
+        for i in range(shp):
+            omega_s[:, i] = np.linalg.solve(Ls, (Lm @ qdm_numeric[:, i]))
+        return omega_s
 
     def kinetic_energy(self):
         j_I = self.momentOfInertia_transform()
@@ -344,9 +363,28 @@ if __name__ == '__main__':
     kin = kinematics(nDoF=nDoF)
     dyn = dynamics(nDoF=nDoF)
     lp, qp, q_dot = [1, 1], [0, np.pi/2], [0.1, 0.2]
-    T_joint, T_i_i1 = kin.fwd_kin_symbolic(qp)
-    j_T_full, pv_origins, pv_com = kin.position_vectors()
-    omega, cm_vel, joint_velocity = kin.velocities()
+    # T_joint, T_i_i1 = kin.fwd_kin_symbolic(qp)
+    # j_T_full, pv_origins, pv_com = kin.position_vectors()
+    # omega, cm_vel, joint_velocity = kin.velocities()
+
+    b = [0.2, 0.3, 0.0]  # vector from spacecraft COM to robot base wrt spacecraft CS
+    I = [0.30, 0.40, 0.5, 0.0, 0.0, 0.0, 0.0, 0.04, 0.06]  # spacecraft Is_xx, Is_yy, Is_zz (principal MOM about its COM)
+    m = [10.0, 3.0, 2.0]  # mass of spacecraft, lin1, lik2
+    rn = [0.3, 0.4]  # x component of COM vector for each of the links
+    l = [1.5, 1]
+    ang_s, ang_b = [0., 0., 0.], [0., 0., 0.]
+    r_s = [0., 0., 0.2]
+    q = [np.pi/3, np.pi/6]
+    t = np.linspace(0, 60, 91)
+    ss = np.floor(len(t) / 3)
+    y1, y2, y3 = np.linspace(0, 5, ss), np.ones(int(ss)) * 5., np.linspace(5, 0, ss)
+    q1_dot = np.zeros(len(t) - 1)
+    q2_dot = np.hstack((y1, y2, y3))
+    q3_dot = np.zeros(len(t) - 1)
+    qdm_numeric = np.vstack((q1_dot, q2_dot,))
+
+    omega_s = dyn.calculate_spacecraft_ang_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+
     # kin_energy = dyn.kinetic_energy()
     M, C = dyn.get_dyn_para()
     # M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
