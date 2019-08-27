@@ -152,11 +152,11 @@ class kinematics():
         b = zeros(3, self.nDoF)
         b[:, 0] = transpose(Matrix([[self.b0x, self.b0y, self.b0z]]))
         for i in range(1, self.nDoF):
-            b[0, i] = self.bb[i]
-            # b[0, i] = 0.5 * self.a[i]
+            # b[0, i] = self.bb[i]
+            b[0, i] = 0.5 * self.a[i]
         for i in range(0, self.nDoF):
-            a[0, i] = self.aa[i]
-            # a[0, i] = 0.5 * self.a[i+1]
+            # a[0, i] = self.aa[i]
+            a[0, i] = 0.5 * self.a[i+1]
         return a, b
 
     def velocities(self):
@@ -250,16 +250,16 @@ class dynamics():
         k11 = self.mass_frac()
         rot_full = self.kin.rotations_from_inertial()
         rot_full.remove(rot_full[1])  # rot_full = [0_R_s, 0_R_j1, 0_R_j2, ...].
-        a, b = self.kin.ab_vectors()
+        aa, bb = self.kin.ab_vectors()
         r0 = zeros(3, 1)
         pv_com = zeros(3, self.nDoF + 1)  # matrix of pos vec frm system COM to COM of spacecraft + each of the links
         for i in range(self.nDoF):
-            r0 += k11[i] * (rot_full[i] @ b[:, i] + rot_full[i + 1] @ a[:, i])
-            # r0 += k11[i] * (b[:, i] + a[:, i])
+            r0 += k11[i] * (rot_full[i] @ bb[:, i] + rot_full[i + 1] @ aa[:, i])
+            # r0 += k11[i] * (bb[:, i] + aa[:, i])
         pv_com[:, 0] = r0
         for i in range(1, self.nDoF + 1):
-            # temp = pv_com[:, i-1] + b[:, i-1] + a[:, i-1]
-            pv_com[:, i] = pv_com[:, i - 1] + rot_full[i - 1] @ b[:, i - 1] + rot_full[i] @ a[:, i - 1]
+            # temp = pv_com[:, i-1] + bb[:, i-1] + aa[:, i-1]
+            pv_com[:, i] = pv_com[:, i - 1] + rot_full[i - 1] @ bb[:, i - 1] + rot_full[i] @ aa[:, i - 1]
             # temp.applyfunc(simplify)
         return pv_com  # [j_rs, j_r1, j_r2, ...]
 
@@ -277,16 +277,43 @@ class dynamics():
         j_vel_com = zeros(3, self.nDoF + 1)  # matrix of linear vel of spacecraft + each of the links wrt inertial
         k11 = self.mass_frac()
         r0_d = zeros(3, 1)
-        a, b = self.kin.ab_vectors()
+        aa, bb = self.kin.ab_vectors()
         for i in range(self.nDoF):
             r0_d += k11[i] * (
-                        omega_skew_sym[i] @ rot_full[i] @ b[:, i] + omega_skew_sym[i + 1] @ rot_full[i + 1] @ a[:, i])
+                        omega_skew_sym[i] @ rot_full[i] @ bb[:, i] + omega_skew_sym[i + 1] @ rot_full[i + 1] @ aa[:, i])
         j_vel_com[:, 0] = r0_d
         for i in range(1, self.nDoF + 1):
-            temp = (omega_skew_sym[i - 1] @ rot_full[i - 1] @ b[:, i - 1] + omega_skew_sym[i] @ rot_full[i] @ a[:,
+            temp = (omega_skew_sym[i - 1] @ rot_full[i - 1] @ bb[:, i - 1] + omega_skew_sym[i] @ rot_full[i] @ aa[:,
                                                                                                               i - 1])
             j_vel_com[:, i] = j_vel_com[:, i - 1] + temp  # [0_v_s, 0_v_com1, 0_v_com2, ...]
         return j_omega, j_vel_com
+
+    def linear_momentum_conservation(self):
+        j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
+        L = zeros(3, 1)
+        for i in range(self.nDoF+1):
+            L += self.m[i] * j_vel_com[:, i]
+        return L
+
+    def calculate_spacecraft_lin_vel(self,  m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric):
+        L = self.linear_momentum_conservation()
+        qd = self.kin.qd[3:]
+        qd_s, qd_m = qd[0:3], qd[3:]
+        L_num = msubs(L, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.l[0]: l[0],
+                          self.kin.l[1]: l[1],
+                          self.m[0]: m[0], self.m[1]: m[1], self.m[2]: m[2], self.Is_xx: I[0], self.Is_yy: I[1],
+                          self.Is_zz: I[2], self.Ixx[0]: I[3], self.Ixx[1]: I[4], self.Iyy[0]: I[5], self.Iyy[1]: I[6],
+                          self.Izz[0]: I[7], self.Izz[1]: I[8], self.kin.ang_xs: ang_s[0], self.kin.ang_ys: ang_s[1],
+                          self.kin.ang_zs: ang_s[2], self.kin.ang_xb: ang_b[0], self.kin.ang_yb: ang_b[1],
+                          self.kin.ang_zb: ang_b[2], self.kin.r_sx: r_s[0], self.kin.r_sy: r_s[1],
+                          self.kin.r_sz: r_s[2], self.kin.q[-2]: q[0], self.kin.q[-1]: q[1]})
+        Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
+        Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
+        shp = qdm_numeric.shape[1]
+        v_s = np.zeros((3, shp))  # linear velocity of spacecraft
+        for i in range(shp):
+            v_s[:, i] = np.linalg.solve(Ls, (Lm @ qdm_numeric[:, i]))
+        return v_s
 
     def momentOfInertia_transform(self):
         j_T_full, pv_origins, pv_com = self.kin.position_vectors()
@@ -366,7 +393,6 @@ if __name__ == '__main__':
     # T_joint, T_i_i1 = kin.fwd_kin_symbolic(qp)
     # j_T_full, pv_origins, pv_com = kin.position_vectors()
     # omega, cm_vel, joint_velocity = kin.velocities()
-
     b = [0.2, 0.3, 0.0]  # vector from spacecraft COM to robot base wrt spacecraft CS
     I = [0.30, 0.40, 0.5, 0.0, 0.0, 0.0, 0.0, 0.04, 0.06]  # spacecraft Is_xx, Is_yy, Is_zz (principal MOM about its COM)
     m = [10.0, 3.0, 2.0]  # mass of spacecraft, lin1, lik2
@@ -383,7 +409,11 @@ if __name__ == '__main__':
     q3_dot = np.zeros(len(t) - 1)
     qdm_numeric = np.vstack((q1_dot, q2_dot,))
 
+    pv_com = dyn.com_pos_vect()
+    ang_vel, lin_vel = dyn.velocities_frm_momentum_conservation()
+
     omega_s = dyn.calculate_spacecraft_ang_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+    v_s = dyn.calculate_spacecraft_lin_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
 
     # kin_energy = dyn.kinetic_energy()
     M, C = dyn.get_dyn_para()
