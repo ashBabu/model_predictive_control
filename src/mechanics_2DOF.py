@@ -98,7 +98,7 @@ class kinematics():
         t = eye(4)
         for i in range(len(q)):
             temp = T.subs(self.alpha_i, self.alpha[i]).subs(self.a_i, self.a[i]).subs(self.d_i, self.d[i]).subs(self.q_i, self.q[i])
-            t = t*temp
+            t = t @ temp
             T_joint.append(t)
             T_i_i1.append(temp)
         return T_joint, T_i_i1

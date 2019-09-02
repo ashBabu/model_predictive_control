@@ -5,6 +5,7 @@ from dh_plotter import DH_plotter
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
+np.set_printoptions(precision=4)
 
 
 class Simulation(object):
@@ -28,15 +29,18 @@ class Simulation(object):
         Ts, Tc = np.eye(4), np.eye(4)
         Ts[0:3, 0:3], Tc[0:3, 0:3] = Rot, Rz90
         Ts[0:3, 3] = np.array([pos[0], pos[1], pos[2]])
-        Tc[0:3, 3] = np.array([size[0]/2, 0, 0])
+        Tc[0:3, 3] = np.array([size[0]/2+0.05, 0, 0])  # the vector b's x comp and size[0]/2 has to be same
+        # Tc[0:3, 3] = np.array([0.7, 0, 0])  # the vector b's x comp and size[0]/2 has to be same
         T1 = Ts @ Tc
-        T_joint_manip = self.DHPlot.robot_DH_matrix(q)
+        T_joint_manip, Ti = self.DHPlot.robot_DH_matrix(q)
         T_combined = np.zeros((T_joint_manip.shape[0]+2, 4, 4))
         T_combined[0, :, :], T_combined[1, :, :] = Ts, T1
         for i in range(2, T_joint_manip.shape[0]+2):
             T_combined[i, :, :] = T1 @ T_joint_manip[i-2, :, :]
 
-        a = 5
+        a = 2.5
+        xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
+        ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
             X, Y, Z = self.satPlot.cuboid_data(pos, size)
             sh = X.shape
@@ -46,34 +50,34 @@ class Simulation(object):
             x, y, z = mr[0, :].reshape(sh), mr[1, :].reshape(sh), mr[2, :].reshape(sh)
             ax.plot_surface(x, y, z, rstride=1, cstride=1, **kwargs)
 
-            x, y, z = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
             for i in range(2, T_combined.shape[0]):
-                ax.plot([x, T_combined[i, 0, 3]], [y, T_combined[i, 1, 3]], [z, T_combined[i, 2, 3]], lw=10)
-                ax.scatter(T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3], 'gray', lw=10)
-                x, y, z = T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3]
+                ax.plot([xx, T_combined[i, 0, 3]], [yy, T_combined[i, 1, 3]], [zz, T_combined[i, 2, 3]], lw=5)
+                ax.scatter(T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3], 'gray', lw=5)
+                xx, yy, zz = T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3]
             plt.xlabel('X')
             plt.ylabel('Y')
-            ax.axis('equal')
+            # ax.axis('equal')
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
 
-    def call_plot(self, pos, size, color, rot_ang):
+    def call_plot(self, pos, size, color, rot_ang, q):
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.set_aspect('equal')
         for i in range(rot_ang.shape[1]):
             temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
+            qi = q[:, i]
             for p, s, c in zip(temp, size, color):
-                self.satellite_namipulator(rot_ang[:, i], pos=p, size=s, ax=ax, color=c)
-            plt.pause(0.2)
+                self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
+            plt.pause(0.1)
             plt.cla()
 
     def simulation(self):
-        sizes = [(2, 2, 2), (3, 3, 7)]
-        colors = ["crimson", "limegreen"]
-        r_s, ang_s = self.dyn.get_positions()
-        self.call_plot(r_s, sizes, colors, ang_s)
+        sizes = [(0.5, 0.5, 0.5), (3, 3, 7)]
+        colors = ["limegreen", "crimson", ]
+        r_s, ang_s, q = self.dyn.get_positions()
+        self.call_plot(r_s, sizes, colors, ang_s, q)
 
 
 if __name__ == '__main__':

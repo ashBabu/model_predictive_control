@@ -29,9 +29,9 @@ class kinematics():
             # self.d = Array([self.l[0], 0.0, 0.0])
 
             self.alpha = np.array([-np.pi / 2, np.pi / 2, 0.])
-            self.a = np.array([0., 0., 1.])
-            self.d = np.array([0.5, 0., 0.])
-            self.eef_dist = 0.5
+            self.a = np.array([0., 0., 1.5])
+            self.d = np.array([1.0, 0., 0.])
+            self.eef_dist = 1.0
         else:
             self.a = Array([0, *self.l])
             self.d = Array([0.0, 0.0])
@@ -131,11 +131,12 @@ class kinematics():
         for i in range(self.nDoF+3):  # includes end-eff origin
             pv_origins[:, i] = j_T_full[i][0:3, 3]  # [0_r_s, 0_r_j0, 0_r_j1, ...], j0 and j1 coincides
         kk = 1
+        pv_com[:, 0] = pv_origins[:, 0]
         for i in range(2, len(j_T_full) - 1):
             trans_temp = pv_origins[:, i]
             rot_temp = j_T_full[i][0:3, 0:3]
-            pv_com[:, i-1] = trans_temp[0] + 0.5 * self.a[kk] * rot_temp[0, 0], \
-                             trans_temp[1] + 0.5 * self.a[kk] * rot_temp[1, 0], 0
+            pv_com[:, i-1] = trans_temp[0] + 0.5 * self.l[kk] * rot_temp[0, 0], \
+                             trans_temp[1] + 0.5 * self.l[kk] * rot_temp[1, 0], 0
             kk += 1
         return j_T_full, pv_origins, pv_com
 
@@ -157,10 +158,10 @@ class kinematics():
         b[:, 0] = transpose(Matrix([[self.b0x, self.b0y, self.b0z]]))
         for i in range(1, self.nDoF):
             # b[0, i] = self.bb[i]
-            b[0, i] = 0.5 * self.a[i]
+            b[0, i] = 0.5 * self.l[i]
         for i in range(0, self.nDoF):
             # a[0, i] = self.aa[i]
-            a[0, i] = 0.5 * self.a[i+1]
+            a[0, i] = 0.5 * self.l[i+1]
         return a, b
 
     def velocities(self):
@@ -324,15 +325,17 @@ class dynamics():
         L = zeros(3, 1)
         for i in range(self.nDoF + 1):
             L += I[i] @ j_omega[:, i]  # + self.m[i] * pv_com[:, i].cross(j_vel_com[:, i])
+            # The second term is not required since the coordinate system considered is at COM
+            # I_o = I_com + I_/com
         return L
 
     def calculate_spacecraft_ang_vel(self, m, l, I, b, ang_s0, ang_b0, r_s0, q0, qdm_numeric):
         L = self.ang_momentum_conservation()
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
-        L_num = 0
+        L_num = L
         for i in range(len(m)):
-            L_num = msubs(L, {self.m[i]: m[i]})
+            L_num = msubs(L_num, {self.m[i]: m[i]})
         for i in range(len(l)):
             L_num = msubs(L_num, {self.kin.l[i]: l[i]})
         for i in range(len(I)):
@@ -351,23 +354,38 @@ class dynamics():
             omega_s[:, i] = np.linalg.solve(Ls, (Lm @ qdm_numeric[:, i]))
         return omega_s
 
-    def calculate_spacecraft_lin_vel(self,  m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric):
-        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_s, ang_b, r_s, q, qdm_numeric)
+    def calculate_spacecraft_lin_vel(self,  m, l, I, b, ang_s0, ang_b0, r_s0, q0, qdm_numeric):
+        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_s0, ang_b0, r_s0, q0, qdm_numeric)
         shp = omega_s.shape[1]
         j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
-        j_vel_com_numeric = msubs(j_vel_com, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2],
-                                              self.kin.l[0]: l[0], self.kin.l[1]: l[1],
-                          self.m[0]: m[0], self.m[1]: m[1], self.m[2]: m[2], self.Is_xx: I[0], self.Is_yy: I[1],
-                          self.Is_zz: I[2], self.Ixx[0]: I[3], self.Ixx[1]: I[4], self.Iyy[0]: I[5], self.Iyy[1]: I[6],
-                          self.Izz[0]: I[7], self.Izz[1]: I[8], self.kin.ang_xs: ang_s[0], self.kin.ang_ys: ang_s[1],
-                          self.kin.ang_zs: ang_s[2], self.kin.ang_xb: ang_b[0], self.kin.ang_yb: ang_b[1],
-                          self.kin.ang_zb: ang_b[2], self.kin.r_sx: r_s[0], self.kin.r_sy: r_s[1],
-                          self.kin.r_sz: r_s[2], self.kin.q[-2]: q[0], self.kin.q[-1]: q[1]})
+
+        j_vel_com_num = j_vel_com
+        for i in range(len(m)):
+            j_vel_com_num = msubs(j_vel_com_num, {self.m[i]: m[i]})
+        for i in range(len(l)):
+            j_vel_com_num = msubs(j_vel_com_num, {self.kin.l[i]: l[i]})
+        for i in range(len(I)):
+            j_vel_com_num = msubs(j_vel_com_num, {self.I_full[i]: I[i]})
+        for i in range(len(q0)):
+            j_vel_com_num = msubs(j_vel_com_num, {self.kin.qm[i]: q0[i]})
+        j_vel_com_num = msubs(j_vel_com_num, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2],
+                                              self.kin.ang_xs: ang_s0[0], self.kin.ang_ys: ang_s0[1],
+                                              self.kin.ang_zs: ang_s0[2], self.kin.ang_xb: ang_b0[0], self.kin.ang_yb: ang_b0[1],
+                                              self.kin.ang_zb: ang_b0[2], self.kin.r_sx: r_s0[0], self.kin.r_sy: r_s0[1],
+                                              self.kin.r_sz: r_s0[2]})
+
+
         v_com = np.zeros((shp, 3, self.nDoF+1))
         qd = self.kin.qd[3:]
-        for i in range(shp):
-            v_com[i, :, :] = msubs(j_vel_com_numeric, {qd[0]: omega_s[0, i], qd[1]: omega_s[1, i], qd[2]: omega_s[2, i],
-                                                       qd[3]: qdm_numeric[0, i], qd[4]: qdm_numeric[1, i]})
+        qd_s, qd_m = qd[0:3], qd[3:]
+        vcm = j_vel_com_num
+        for j in range(shp):
+            for i in range(len(qd_s)):
+                j_vel_com_num = msubs(j_vel_com_num, {qd_s[i]: omega_s[i, j]})
+            for k in range(len(qd_m)):
+                j_vel_com_num = msubs(j_vel_com_num, {qd_m[k]: qdm_numeric[k, j]})
+            v_com[j, :, :] = j_vel_com_num
+            j_vel_com_num = vcm
         return v_com
 
     def kinetic_energy(self):
@@ -398,25 +416,15 @@ class dynamics():
         m = self.kin.mass
         l = self.kin.l
         I = np.array([1400.0, 1400.0, 2040.0, 0.10, 0.25, 0.25, 0.10, 0.26, 0.26, 0.10, 0.26, 0.26])
-
-        # self.alpha = np.array([-np.pi / 2, np.pi / 2, 0.])
-        # self.a = np.array([0, 0, 1.])
-        # self.d = np.array([0.5, 0., 0.])
-        # self.eef_dist = 0.5
-
-        b0 = [0.5, 0.0, 0.0]  # vector from spacecraft COM to robot base wrt spacecraft CS
-        # I = [300, 400, 500, 0.0, 0.0, 0.0, 0.0, 0.04,
-        #      0.06]  # spacecraft Is_xx, Is_yy, Is_zz (principal MOM about its COM)
-        # m = [10.0, 3.0, 2.0]  # mass of spacecraft, lin1, lik2
-        # rn = [0.3, 0.4]  # x component of COM vector for each of the links
-        # l = [1.5, 1]
+        b0 = [0.25, 0.0, 0.0]  # vector from spacecraft COM to robot base wrt spacecraft CS
         ang_s0, ang_b = np.array([0., 0., 0.]), np.array([0.0, 0.0, 0.])
         r_s0 = np.array([0.1, 0.1, 0.0])
         q0 = np.array([np.pi / 3 * 0, np.pi / 2, 0])
         t = np.linspace(0, 60, 91)
         dt = t[1] - t[0]
         ss = np.floor(len(t) / 3)
-        y1, y2, y3 = np.linspace(0, 5, ss), np.ones(int(ss)) * 5., np.linspace(5, 0, ss)
+        cc = np.pi/80
+        y1, y2, y3 = np.linspace(0, cc, ss), np.ones(int(ss)) * cc, np.linspace(cc, 0, ss)
         q1_dot = np.zeros(len(t) - 1)
         q2_dot = np.hstack((y1, y2, y3))
         q3_dot = np.zeros(len(t) - 1)
@@ -431,10 +439,12 @@ class dynamics():
         # self.kin.q[i].diff(): q_dot[i]}
         r_s = solver.numerical_integration(vs, r_s0, dt)  # position vector of spacecraft COM as a function of time
         r_s = np.c_[r_s0.reshape(3, -1), r_s]
+        qm_numeric = solver.numerical_integration(qdm_numeric, q0, dt)
+        q = np.c_[q0, qm_numeric]
         ang_s = solver.numerical_integration(omega_s, ang_s0,
                                              dt)  # angular position of spacecraft COM as a function of time
         ang_s = np.c_[ang_s0.reshape(3, -1), ang_s]
-        return r_s, ang_s
+        return r_s, ang_s, q
 
 
 class Solver(object):

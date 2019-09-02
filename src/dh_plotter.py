@@ -13,27 +13,29 @@ class DH_plotter():
             self.d = np.array([0.333, 0, 0.316, 0, 0.384, 0, 0, 0.107])
             self.alpha = np.array([0, -np.pi/2, np.pi/2, np.pi/2, -np.pi/2, np.pi/2, np.pi/2, 0])
             self.eef_dist = 0.0
-        else:
-            self.alpha = np.array([-np.pi/2, np.pi/2, 0.])
-            self.a = np.array([0, 0, 1.])
-            self.d = np.array([0.5, 0.,  0.])
-            self.eef_dist = 0.5
+        else:  # 3DOF robot given in yoshida and umeneti: resolved motion rate control of space manipulators
+            self.alpha = np.array([-np.pi / 2, np.pi / 2, 0.])
+            self.a = np.array([0., 0., 1.5])
+            self.d = np.array([1.0, 0., 0.])
+            self.eef_dist = 1.0
 
     def robot_DH_matrix(self, q):
-        t, T_joint = np.eye(4), np.zeros((self.nDoF+1, 4, 4))
+        t, T_joint, Ti = np.eye(4), np.zeros((self.nDoF+1, 4, 4)), np.zeros((self.nDoF+1, 4, 4))
         i = 0
         for i in range(self.nDoF):
             T = np.array([[np.cos(q[i]), -np.sin(q[i]), 0, self.a[i]],
                           [np.sin(q[i]) * np.cos(self.alpha[i]), np.cos(q[i]) * np.cos(self.alpha[i]), -np.sin(self.alpha[i]), -np.sin(self.alpha[i]) * self.d[i]],
                           [np.sin(q[i]) * np.sin(self.alpha[i]), np.cos(q[i]) * np.sin(self.alpha[i]), np.cos(self.alpha[i]), np.cos(self.alpha[i]) * self.d[i]],
                           [0, 0, 0, 1]])
-            t = t.dot(T)
+            t = t @ T
+            Ti[i, :, :] = T
             T_joint[i, :, :] = t
         tmp = np.eye(4)
         tmp[0, 3] = self.eef_dist
         T_ee = t @ tmp
         T_joint[i+1, :, :] = T_ee
-        return T_joint
+        Ti[i+1, :, :] = tmp
+        return T_joint, Ti
 
     def plotter(self, ax, Tt, lgnd, color='r'):
         for j in range(len(Tt)):
