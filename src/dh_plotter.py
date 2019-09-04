@@ -1,6 +1,8 @@
 import numpy as np
+from sympy import *
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
+np.set_printoptions(precision=2)
 
 
 class DH_plotter():
@@ -22,6 +24,7 @@ class DH_plotter():
     def robot_DH_matrix(self, q):
         t, T_joint, Ti = np.eye(4), np.zeros((self.nDoF+1, 4, 4)), np.zeros((self.nDoF+1, 4, 4))
         i = 0
+        q = np.array(simplify(q)).astype(np.float64)
         for i in range(self.nDoF):
             T = np.array([[np.cos(q[i]), -np.sin(q[i]), 0, self.a[i]],
                           [np.sin(q[i]) * np.cos(self.alpha[i]), np.cos(q[i]) * np.cos(self.alpha[i]), -np.sin(self.alpha[i]), -np.sin(self.alpha[i]) * self.d[i]],
@@ -65,8 +68,8 @@ if __name__ == '__main__':
     # q = np.zeros(8)
     robot = '3DOF'
     nDoF = 3
-    # the manipulator is a straight line when the joint angles are [0, 90, , 0]
-    q = np.array([np.pi/4*0, np.pi/2, np.pi/2])
+    # the 3 DOF manipulator is a straight line when the joint angles are [0, 90, , 0]
+    q = np.array([np.pi/4*0, np.pi/2, np.pi/2*0])
     dh_plotter = DH_plotter(nDoF, robot)
     q3 = np.linspace(0, np.pi/2, 50)
     q1 = np.linspace(0, np.pi, 50)
@@ -75,7 +78,7 @@ if __name__ == '__main__':
         # q = np.array([0, np.pi/2, q3[i]])
         q = np.array([q1[i], np.pi/2, np.pi/2])
         # q = np.array([0, np.pi/2, q3[i]])
-        T_joint = dh_plotter.robot_DH_matrix(q)
+        T_joint, Ti = dh_plotter.robot_DH_matrix(q)
         Tt.append(T_joint)
     dh_plotter.plotter(ax, Tt, 'desired', color='blue')
 

@@ -62,6 +62,7 @@ class Simulation(object):
             ax.set_xlim(-a, a)
 
     def call_plot(self, pos, size, color, rot_ang, q):
+        # rot angle is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.set_aspect('equal')
@@ -71,11 +72,11 @@ class Simulation(object):
             for p, s, c in zip(temp, size, color):
                 self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
             plt.pause(0.1)
-            plt.savefig("%i" % i)
+            # plt.savefig("%i" % i)
             plt.cla()
 
     def simulation(self):
-        sizes = [(0.5, 0.5, 0.5), (3, 3, 7)]
+        sizes = self.kin.sizes
         colors = ["limegreen", "crimson", ]
         r_s, ang_s, q, q_dot, t = self.dyn.get_positions()
         self.call_plot(r_s, sizes, colors, ang_s, q)
