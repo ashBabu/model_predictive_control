@@ -71,13 +71,35 @@ class Simulation(object):
             for p, s, c in zip(temp, size, color):
                 self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
             plt.pause(0.1)
+            plt.savefig("%i" % i)
             plt.cla()
 
     def simulation(self):
         sizes = [(0.5, 0.5, 0.5), (3, 3, 7)]
         colors = ["limegreen", "crimson", ]
-        r_s, ang_s, q = self.dyn.get_positions()
+        r_s, ang_s, q, q_dot, t = self.dyn.get_positions()
         self.call_plot(r_s, sizes, colors, ang_s, q)
+
+        r_sx, r_sy, r_sz = r_s[0, :], r_s[1, :], r_s[2, :]
+        ang_sx, ang_sy, ang_sz = ang_s[0, :], ang_s[1, :], ang_s[2, :]
+        q1, q2, q3 = q[0, :], q[1, :], q[2, :]
+        q1_dot, q2_dot, q3_dot = q_dot[0, :], q_dot[1, :], q_dot[2, :]
+
+        fig1 = plt.figure(1)
+        plt.plot(t, r_sx)
+        plt.plot(t, r_sy)
+        plt.plot(t, r_sz)
+
+        fig2 = plt.figure(2)
+        plt.plot(t, ang_sx)
+        plt.plot(t, ang_sy)
+        plt.plot(t, ang_sz)
+
+        fig3 = plt.figure(3)
+        plt.plot(t[:-1], q1_dot)
+        plt.plot(t[:-1], q2_dot)
+        plt.plot(t[:-1], q3_dot)
+        plt.show()
 
 
 if __name__ == '__main__':
