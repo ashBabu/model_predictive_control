@@ -29,7 +29,7 @@ class kinematics():
             self.alpha = np.array([-pi / 2, pi / 2, 0.])
             self.a = np.array([0., 0., 1.5])
             self.d = np.array([1.0, 0., 0.])
-            self.eef_dist = 1.0  # l3
+            self.eef_dist = 1.20  # l3
         else:
             self.a = Array([0, *self.l])
             self.d = Array([0.0, 0.0])
@@ -110,7 +110,8 @@ class kinematics():
             T_joint.append(t)  # joint transformation matrix wrt base
             T_i_i1.append(temp)
         tmp = eye(4)
-        tmp[0, 3] = self.a[-1]
+        tmp[0, 3] = self.eef_dist
+        T_i_i1.append(tmp)  # Adding eef transformation (basically an identity matrix with a translation)
         T_ee = t @ tmp
         T_joint.append(T_ee)
         return T_joint, T_i_i1
@@ -150,23 +151,36 @@ class kinematics():
             # rb = robot base or joint 0 {j0}
         return rot_full
 
-    def ab_vectors(self):
-        # assuming COM of links be exactly half of link lengths
-        # a_i is the vector pointing from joint i to COM i described wrt the joint CS
-        # b_i is the vector pointing from COM i to joint i+1 described wrt the COM CS
-        a = zeros(3, self.nDoF)
-        b = zeros(3, self.nDoF)
-        b[:, 0] = transpose(Matrix([[self.b0x, self.b0y, self.b0z]]))
-        for i in range(1, self.nDoF):
-            # b[0, i] = self.bb[i]
-            b[0, i] = 0.5 * self.l[i-1]
-        for i in range(self.nDoF):
-            # a[0, i] = self.aa[i]
-            a[0, i] = 0.5 * self.l[i]
+    def ab_vectors(self, com_vec=None):
+        if not com_vec:
+            _, T_i_i1 = self.fwd_kin_symbolic(self.qm)
+            # assuming COM of links be exactly half of link lengths
+            # a_i is the vector pointing from joint i to COM i described wrt the joint CS
+            # b_i is the vector pointing from COM i to joint i+1 described wrt the COM CS
+            a = zeros(3, self.nDoF)
+            b = zeros(3, self.nDoF+1)
+            b[:, 0] = transpose(Matrix([[self.b0x, self.b0y, self.b0z]]))
+            ww = 1
+            for i in range(0, len(T_i_i1)):
+                # b[0, i] = self.bb[i]
+                # b[0, i] = 0.5 * self.l[i-1]
+                temp = np.array(T_i_i1[i][0:3, 3]).astype(np.float64)
+                if np.any(temp):
+                    b[:, ww] = 0.5 * temp
+                    ww += 1
+            a = b[:, 1:]
+            # for i in range(self.nDoF):
+            #     # a[0, i] = self.aa[i]
+            #     # a[0, i] = 0.5 * self.l[i]
+            #     temp = np.array(T_i_i1[i][0:3, 3]).astype(np.float64)
+            #     if np.any(temp):
+            #         a[:, i] = 0.5 * temp
+        else:
+            a, b = com_vec
         return a, b
 
     def velocities(self):
-        j_T_full, pv_origins, pv_com = self.position_vectors()
+        j_T_full, pv_origins, pv_com = self.position_vectors()  # j_T_full = [0_T_s, 0_T_j0, 0_T_j1, 0_T_j2,..., 0_T_ee]
         omega = zeros(3, self.nDoF+2)
         joint_velocity = zeros(3, self.nDoF+2)
         com_vel = zeros(3, self.nDoF+1)
@@ -176,16 +190,17 @@ class kinematics():
         joint_velocity[:, 0] = Matrix([[self.r_sxd], [self.r_syd], [self.r_szd]])  # satellite linear vel of COM
         joint_velocity[:, 1] = joint_velocity[:, 0] +\
                                omega[:, 1].cross((j_T_full[0][0:3, 0:3] @ b))  # lin vel of robot_base ({j0})
-        joint_velocity[:, 2] = joint_velocity[:, 1]  # linear vel of {j1}
+
+        # joint_velocity[:, 2] = joint_velocity[:, 1]  # linear vel of {j1}
         com_vel[:, 0] = joint_velocity[:, 0]
         aa, bb = self.ab_vectors()
-
+        l = 2 * aa
         for i in range(2, 2+self.nDoF):
             temp = j_T_full[i][0:3, 2] * self.qdm[i - 2]
             omega[:, i] = omega[:, i-1] + temp
-        for i in range(3, 3+self.nDoF - 1):  # not considering end-eff vel
-            l = Matrix([[self.a[i-2]], [0], [0]])
-            joint_velocity[:, i] = joint_velocity[:, i - 1] + omega[:, i].cross((j_T_full[i - 1][0:3, 0:3] @ l))
+        for i in range(2, 2+self.nDoF - 1):  # not considering end-eff vel
+            # l = Matrix([[self.a[i-2]], [0], [0]])
+            joint_velocity[:, i] = joint_velocity[:, i - 1] + omega[:, i].cross((j_T_full[i - 1][0:3, 0:3] @ l[:, i-2]))
         for i in range(1, 1+self.nDoF):
             com_vel[:, i] = joint_velocity[:, i+1] + omega[:, i+1].cross((j_T_full[i+1][0:3, 0:3] @ aa[:, i - 1]))
         return omega, com_vel, joint_velocity
@@ -480,10 +495,10 @@ if __name__ == '__main__':
 
     # T_joint, T_i_i1 = kin.fwd_kin_symbolic(kin.qm)
     # j_T_full, pv_origins, pv_com = kin.position_vectors()
-    omega, vel_com = dyn.velocities_frm_momentum_conservation()
     # a, b = kin.ab_vectors()
+    omega, cm_vel, joint_velocity = kin.velocities()
+    # omega, vel_com = dyn.velocities_frm_momentum_conservation()
     # omega, com_vel, joint_velocity = kin.velocities()
-    # omega, cm_vel, joint_velocity = kin.velocities()
 
     # kin_energy = dyn.kinetic_energy()
     # M, C = dyn.get_dyn_para()
