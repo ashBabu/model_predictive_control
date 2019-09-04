@@ -4,54 +4,50 @@ import matplotlib.pyplot as plt
 from eom_symbolic import dynamics, kinematics
 from sympy import *
 from sympy.physics.mechanics import *
-# import dill
-# dill.settings['recurse'] = True
-# import pickle
 
 
 class SolveEom:
     def __init__(self, nDoF):
         self.nDoF = nDoF
-        self.dyn = dynamics(nDoF)
-        self.kin = kinematics(nDoF)
+        self.dyn = dynamics(nDoF, robot='3DoF')
+        self.kin = kinematics(nDoF, robot='3DoF')
         self.M, self.C = self.dyn.get_dyn_para()
 
-        # Constant parameters
-        self.bn = [0.2, 0.3, 0.0]  # vector from spacecraft COM to robot base wrt spacecraft CS
-        self.ang_b = [0.0, 0.0, np.pi/4]  # angular position of robot base wrt spacecraft COM CS
-        self.Isn = [0.0, 0.0, 0.05]  # spacecraft Is_xx, Is_yy, Is_zz (principal MOM about its COM)
-        self.mn = [10.0, 3.0, 2.0]  # mass of spacecraft, lin1, lik2
-        self.rn = [0.3, 0.4]  # x component of COM vector for each of the links
-        self.ln = [1.5, 1]
-        self.Ixxn = [0.0, 0.0]
-        self.Iyyn = [0.0, 0.0]
-        self.Izzn = [0.04, 0.06]
+        self.M_temp = self.M
+        for i in range(len(self.dyn.m)):
+            self.M_temp = msubs(self.M_temp, {self.dyn.m[i]: self.dyn.mass[i]})
+        for i in range(len(self.kin.l)):
+            self.M_temp = msubs(self.M_temp, {self.kin.l[i]: self.kin.l_numeric[i+1]})
+        for i in range(len(self.dyn.I_full)):
+            self.M_temp = msubs(self.M_temp, {self.dyn.I_full[i]: self.dyn.I_numeric[i]})
+        for i in range(len(self.kin.q0)):
+            self.M_temp = msubs(self.M_temp, {self.kin.qm[i]: self.kin.q0[i]})
+        self.M_temp = msubs(self.M_temp, {self.kin.b0x: self.kin.b0[0], self.kin.b0y: self.kin.b0[1],
+                                          self.kin.b0z: self.kin.b0[2], self.kin.ang_xs: self.kin.ang_s0[0],
+                                          self.kin.ang_ys: self.kin.ang_s0[1], self.kin.ang_zs: self.kin.ang_s0[2],
+                                          self.kin.ang_xb: self.kin.ang_b[0], self.kin.ang_yb: self.kin.ang_b[1],
+                                          self.kin.ang_zb: self.kin.ang_b[2], self.kin.r_sx: self.kin.r_s0[0],
+                                          self.kin.r_sy: self.kin.r_s0[1], self.kin.r_sz: self.kin.r_s0[2]})
 
-        self.M_temp = msubs(self.M,
-                   {self.kin.b0x: self.bn[0], self.kin.b0y: self.bn[1], self.kin.b0z: self.bn[2],
-                    self.kin.ang_xb: self.ang_b[0], self.kin.ang_yb: self.ang_b[1], self.kin.ang_zb: self.ang_b[2],
-                    self.dyn.Is_xx: self.Isn[0], self.dyn.Is_yy: self.Isn[1], self.dyn.Is_zz: self.Isn[2],
-                    self.dyn.m[0]: self.mn[0], self.dyn.m[1]: self.mn[1], self.dyn.m[2]: self.mn[2],
-                    self.kin.rx[0]: self.rn[0], self.kin.rx[1]: self.rn[1],
-                    self.kin.l[0]: self.ln[0], self.kin.l[1]: self.ln[1],
-                    self.dyn.Ixx[0]: self.Ixxn[0], self.dyn.Ixx[1]: self.Ixxn[1],
-                    self.dyn.Iyy[0]: self.Iyyn[0], self.dyn.Iyy[1]: self.Iyyn[1],
-                    self.dyn.Izz[0]: self.Izzn[0], self.dyn.Izz[1]: self.Izzn[1],})
+        self.C_temp = self.C
+        for i in range(len(self.dyn.m)):
+            self.C_temp = msubs(self.C_temp, {self.dyn.m[i]: self.dyn.mass[i]})
+        for i in range(len(self.kin.l)):
+            self.C_temp = msubs(self.C_temp, {self.kin.l[i]: self.kin.l_numeric[i+1]})
+        for i in range(len(self.dyn.I_full)):
+            self.C_temp = msubs(self.C_temp, {self.dyn.I_full[i]: self.dyn.I_numeric[i]})
+        for i in range(len(self.kin.q0)):
+            self.C_temp = msubs(self.C_temp, {self.kin.qm[i]: self.kin.q0[i]})
+        self.C_temp = msubs(self.C_temp, {self.kin.b0x: self.kin.b0[0], self.kin.b0y: self.kin.b0[1],
+                                          self.kin.b0z: self.kin.b0[2], self.kin.ang_xs: self.kin.ang_s0[0],
+                                          self.kin.ang_ys: self.kin.ang_s0[1], self.kin.ang_zs: self.kin.ang_s0[2],
+                                          self.kin.ang_xb: self.kin.ang_b[0], self.kin.ang_yb: self.kin.ang_b[1],
+                                          self.kin.ang_zb: self.kin.ang_b[2], self.kin.r_sx: self.kin.r_s0[0],
+                                          self.kin.r_sy: self.kin.r_s0[1], self.kin.r_sz: self.kin.r_s0[2]})
 
-        self.C_temp = msubs(self.C,
-                   {self.kin.b0x: self.bn[0], self.kin.b0y: self.bn[1], self.kin.b0z: self.bn[2],
-                    self.kin.ang_xb: self.ang_b[0], self.kin.ang_yb: self.ang_b[1], self.kin.ang_zb: self.ang_b[2],
-                    self.dyn.Is_xx: self.Isn[0], self.dyn.Is_yy: self.Isn[1], self.dyn.Is_zz: self.Isn[2],
-                    self.dyn.m[0]: self.mn[0], self.dyn.m[1]: self.mn[1], self.dyn.m[2]: self.mn[2],
-                    self.kin.rx[0]: self.rn[0], self.kin.rx[1]: self.rn[1],
-                    self.kin.l[0]: self.ln[0], self.kin.l[1]: self.ln[1],
-                    self.dyn.Ixx[0]: self.Ixxn[0], self.dyn.Ixx[1]: self.Ixxn[1],
-                    self.dyn.Iyy[0]: self.Iyyn[0], self.dyn.Iyy[1]: self.Iyyn[1],
-                    self.dyn.Izz[0]: self.Izzn[0], self.dyn.Izz[1]: self.Izzn[1],})
-        print('hi')
     # function that returns dy/dt
     def model(self, X, t):
-        pos, vel = X[0:8], X[8:]
+        pos, vel = X[0:self.nDoF+6], X[self.nDoF+6:]
         Mt = self.M_temp
         Ct = self.C_temp
         for i in range(len(pos)):
@@ -65,28 +61,32 @@ class SolveEom:
         dydt = np.hstack((x1dot, np.squeeze(x2dot)))
         return dydt
 
-    def solve_ode(self):
-        t = np.linspace(0, 3, 10)
-        pos = np.array([0.1, 0.2, 0.0, 0.0, 0.0, np.pi/4, np.pi/8, np.pi/6])
-        vel = np.array([0.01, 0.02, 0.0, 0.0, 0.0, 0.1*np.pi/4, 0.1*np.pi/8, 0.1*np.pi/6])
-        y0 = np.array([0.1, 0.2, 0.0, 0.0, 0.0, np.pi/4, np.pi/8, np.pi/6,
-                       0.01, 0.02, 0.0, 0.0, 0.0, 0.1*np.pi/4, 0.1*np.pi/8, 0.1*np.pi/6])
-        X0 = [pos, vel]
+    def solve_ode(self, t):
+        pos = np.hstack((self.kin.r_s0, self.kin.ang_s0, self.kin.q0))  # [ r_s, ang_s, q1, q2, ...]
+        vel = 0.01 * np.ones(len(pos))
+        y0 = np.hstack((pos, vel))
         y1 = odeint(self.model, y0, t, )
         return y1
 
 
 if __name__ == '__main__':
-    nDoF = 4
-    t = np.linspace(0, 3, 10)
+    nDoF = 3
+    t = np.linspace(0, 60, 90)
     seom = SolveEom(nDoF)
-    y1 = seom.solve_ode()
-    r_sx = y1[:, 0]
-    r_sy = y1[:, 1]
-    ang_sz = y1[:, 7]
-    v_sx = y1[:, 8]
-    v_sy = y1[:, 9]
-    w_sz = y1[:, -1]
+    y1 = seom.solve_ode(t)
+    r_sx, r_sy, r_sz = y1[:, 0], y1[:, 1], y1[:, 2]
+    ang_sx, ang_sy, ang_sz = y1[:, 3], y1[:, 4], y1[:, 5]
+
+    v_sx, v_sy, v_sz = y1[:, 6+nDoF], y1[:, 6+nDoF+1], y1[:, 6+nDoF+2]
+
+    w_sx, w_sy, w_sz  = y1[:, 6+nDoF+3], y1[:, 6+nDoF+4], y1[:, 6+nDoF+5]
+
+    # f = open("data", "w")
+    # f.write("# t y\n")  # column names
+    np.savetxt('solution.txt', y1, fmt="%.3f", )
+
+    # loading:
+    # x, y = np.loadtxt('solution.txt', unpack=True)
 
     plt.plot(t, r_sx, 'r-', linewidth=2, label='x_position')
     plt.plot(t, r_sy, 'b--', linewidth=2, label='y_position')
@@ -102,26 +102,3 @@ if __name__ == '__main__':
     # Ms = msubs(seom.M, {seom.kin.ang_xs:0, seom.kin.ang_ys:0, seom.kin.ang_zs:0, seom.kin.ang_xb:0, seom.kin.ang_yb:0, seom.kin.ang_zb:0, seom.kin.r_sx:0, seom.kin.r_sy:0, seom.kin.r_sz:0, seom.kin.b0x:0, seom.kin.b0y:0, seom.kin.b0z:0, seom.dyn.Is_xx:0, seom.dyn.Is_yy:0, seom.dyn.Is_zz:0, seom.dyn.m[0]:0})
 
     print('hi')
-
-    # dill.dump(M, open("MassMatrix", "wb"))
-    # dill.dump(C, open("Coriolis&Centrifugal", "wb"))
-    #
-    # MassMatrix = dill.load(open("MassMatrix", "rb"))
-    # Coriolis = dill.load(open("Coriolis", "rb"))
-
-
-
-    # initial condition
-    y0 = 5
-
-    # time points
-    t = np.linspace(0,20)
-
-    # plot results
-    # plt.plot(t,y1,'r-',linewidth=2,label='k=0.1')
-    # plt.plot(t,y2,'b--',linewidth=2,label='k=0.2')
-    # plt.plot(t,y3,'g:',linewidth=2,label='k=0.5')
-    # plt.xlabel('time')
-    # plt.ylabel('y(t)')
-    # plt.legend()
-    # plt.show()
