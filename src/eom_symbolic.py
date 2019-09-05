@@ -131,19 +131,22 @@ class kinematics():
         for i in range(2, 3+self.nDoF):
             j_T_full.append(j_T_j0 @ T_joint[i - 2])
         for i in range(self.nDoF+3):  # includes end-eff origin
-            pv_origins[:, i] = j_T_full[i][0:3, 3]  # [0_r_s, 0_r_j0, 0_r_j1, ...], j0 and j1 coincides
-        kk = 0
+            pv_origins[:, i] = j_T_full[i][0:3, 3]  # [0_r_s, 0_r_b, 0_r_j1, ...0_r_eef]
+        kk = 1
         pv_com[:, 0] = pv_origins[:, 0]
-        for i in range(2, len(j_T_full) - 1):
-            trans_temp = pv_origins[:, i]
-            rot_temp = j_T_full[i][0:3, 0:3]
-            pv_com[:, i-1] = trans_temp[0] + 0.5 * self.l[kk] * rot_temp[0, 0], \
-                             trans_temp[1] + 0.5 * self.l[kk] * rot_temp[1, 0], 0
-            kk += 1
-        return j_T_full, pv_origins, pv_com
+        j_com_vec, ll = zeros(3, self.nDoF), 0
+        for i in range(1, pv_origins.shape[1]-1):
+            v = pv_origins[:, i+1] - pv_origins[:, i]
+            if v[0] or v[1] or v[2]:
+                pv_com[:, kk] = pv_origins[:, i] + 0.5 * v  # assuming COM exactly at the middle of the link
+                j_com_vec[:, ll] = 0.5 * v  # vector from joint i to COM of link i described in inertial.
+                # vector 'a' in Umeneti and Yoshida
+                kk += 1
+                ll += 1
+        return j_T_full, pv_origins, pv_com, j_com_vec
 
     def rotations_from_inertial(self):
-        j_T_full, _, _ = self.position_vectors()
+        j_T_full, _, _, _ = self.position_vectors()
         rot_full = list()
         for i in range(len(j_T_full)):
             rot_full.append(j_T_full[i][0:3, 0:3])  # rotation matrix of spacecraft COM + each joint CS wrt inertial
@@ -152,57 +155,43 @@ class kinematics():
         return rot_full
 
     def ab_vectors(self, com_vec=None):
+        j_T_full, _, _, j_com_vec = self.position_vectors()
         if not com_vec:
-            _, T_i_i1 = self.fwd_kin_symbolic(self.qm)
-            # assuming COM of links be exactly half of link lengths
-            # a_i is the vector pointing from joint i to COM i described wrt the joint CS
-            # b_i is the vector pointing from COM i to joint i+1 described wrt the COM CS
-            a = zeros(3, self.nDoF)
-            b = zeros(3, self.nDoF+1)
-            b[:, 0] = transpose(Matrix([[self.b0x, self.b0y, self.b0z]]))
-            ww = 1
-            for i in range(0, len(T_i_i1)):
-                # b[0, i] = self.bb[i]
-                # b[0, i] = 0.5 * self.l[i-1]
-                temp = np.array(T_i_i1[i][0:3, 3]).astype(np.float64)
-                if np.any(temp):
-                    b[:, ww] = 0.5 * temp
-                    ww += 1
-            a = b[:, 1:]
-            # for i in range(self.nDoF):
-            #     # a[0, i] = self.aa[i]
-            #     # a[0, i] = 0.5 * self.l[i]
-            #     temp = np.array(T_i_i1[i][0:3, 3]).astype(np.float64)
-            #     if np.any(temp):
-            #         a[:, i] = 0.5 * temp
+            a = j_com_vec
+            b0 = j_T_full[0][0:3, 0:3] @ transpose(Matrix([[self.b0x, self.b0y, self.b0z]]))
+            b = a.col_insert(0, b0)
         else:
             a, b = com_vec
-        return a, b
+        return a, b,
 
     def velocities(self):
-        j_T_full, pv_origins, pv_com = self.position_vectors()  # j_T_full = [0_T_s, 0_T_j0, 0_T_j1, 0_T_j2,..., 0_T_ee]
+        j_T_full, pv_origins, pv_com, j_com_vec = self.position_vectors()
+        # j_T_full = [0_T_s, 0_T_j0, 0_T_j1, 0_T_j2,..., 0_T_ee]
+        # j_com_vec =  vector from joint i to COM of link i wrt in inertial. vector 'a' in Umeneti and Yoshida
         omega = zeros(3, self.nDoF+2)
         joint_velocity = zeros(3, self.nDoF+2)
         com_vel = zeros(3, self.nDoF+1)
         b = Matrix([[self.b0x], [self.b0y], [self.b0z]])
         omega[:, 0] = Matrix([[self.w_sxd], [self.w_syd], [self.w_szd]])  # 0_w_s = ang vel of satellite wrt 0
         omega[:, 1] = Matrix([[self.w_sxd], [self.w_syd], [self.w_szd]])  # 0_w_j0 = ang vel of robot base
-        joint_velocity[:, 0] = Matrix([[self.r_sxd], [self.r_syd], [self.r_szd]])  # satellite linear vel of COM
-        joint_velocity[:, 1] = joint_velocity[:, 0] +\
-                               omega[:, 1].cross((j_T_full[0][0:3, 0:3] @ b))  # lin vel of robot_base ({j0})
-
-        # joint_velocity[:, 2] = joint_velocity[:, 1]  # linear vel of {j1}
-        com_vel[:, 0] = joint_velocity[:, 0]
-        aa, bb = self.ab_vectors()
-        l = 2 * aa
         for i in range(2, 2+self.nDoF):
             temp = j_T_full[i][0:3, 2] * self.qdm[i - 2]
             omega[:, i] = omega[:, i-1] + temp
+
+        joint_velocity[:, 0] = Matrix([[self.r_sxd], [self.r_syd], [self.r_szd]])  # satellite linear vel of COM
+        joint_velocity[:, 1] = joint_velocity[:, 0] +\
+                               omega[:, 0].cross((j_T_full[0][0:3, 0:3] @ b))  # lin vel of robot_base ({j0})
+        # Note: j_T_full[0][0:3, 0:3] @ b = pv_origins[:, 1] - pv_origins[:, 0]
         for i in range(2, 2+self.nDoF - 1):  # not considering end-eff vel
-            # l = Matrix([[self.a[i-2]], [0], [0]])
-            joint_velocity[:, i] = joint_velocity[:, i - 1] + omega[:, i].cross((j_T_full[i - 1][0:3, 0:3] @ l[:, i-2]))
-        for i in range(1, 1+self.nDoF):
-            com_vel[:, i] = joint_velocity[:, i+1] + omega[:, i+1].cross((j_T_full[i+1][0:3, 0:3] @ aa[:, i - 1]))
+            v = pv_origins[:, i] - pv_origins[:, i-1]
+            joint_velocity[:, i] = joint_velocity[:, i - 1] + omega[:, i-1].cross(v)
+
+        jk = 0
+        com_vel[:, 0] = joint_velocity[:, 0]
+        for i in range(1, joint_velocity.shape[1]-1):
+            if joint_velocity[:, i] == joint_velocity[:, i+1]:
+                jk += 1
+            com_vel[:, i] = joint_velocity[:, i+jk] + omega[:, i+1].cross(j_com_vec[:, i-1])
         return omega, com_vel, joint_velocity
 
     def plotter(self, ax, points, j_T_full, pv_origins, pv_com, j_r_c):
@@ -280,44 +269,57 @@ class dynamics():
     def com_pos_vect(self):
         # rs, r1, r2 etc are pv from inertial to COM of spacecraft, link1, lin2, ...
         k11 = self.mass_frac()
-        rot_full = self.kin.rotations_from_inertial()
-        rot_full.remove(rot_full[1])  # rot_full = [0_R_s, 0_R_j1, 0_R_j2, ...].
+        j_T_full, _, _, j_com_vec = self.kin.position_vectors()
         aa, bb = self.kin.ab_vectors()
         r0 = zeros(3, 1)
         pv_com = zeros(3, self.nDoF + 1)  # matrix of pos vec frm system COM to COM of spacecraft + each of the links
         for i in range(self.nDoF):
-            r0 += k11[i] * (rot_full[i] @ bb[:, i] + rot_full[i + 1] @ aa[:, i])
+            r0 += k11[i] * (bb[:, i] + aa[:, i])
             # r0 += k11[i] * (bb[:, i] + aa[:, i])
         pv_com[:, 0] = r0
         for i in range(1, self.nDoF + 1):
-            # temp = pv_com[:, i-1] + bb[:, i-1] + aa[:, i-1]
-            pv_com[:, i] = pv_com[:, i - 1] + rot_full[i - 1] @ bb[:, i - 1] + rot_full[i] @ aa[:, i - 1]
+            pv_com[:, i] = pv_com[:, i - 1] + bb[:, i - 1] + aa[:, i - 1]
             # temp.applyfunc(simplify)
         return pv_com  # [j_rs, j_r1, j_r2, ...]
 
     def velocities_frm_momentum_conservation(self):
-        j_omega = zeros(3, self.nDoF + 1)  # matrix containing ang vel of spacecraft + each of the links wrt inertial
-        j_omega[:, 0] = Matrix([[self.kin.w_sxd], [self.kin.w_syd], [self.kin.w_szd]])
-        rot_full = self.kin.rotations_from_inertial()  # rot_full = [0_R_s, 0_R_rb, 0_R_j1, 0_R_j2, ...0_R_jeef]
-        for i in range(1, self.nDoF + 1):
-            temp = rot_full[i + 1][:, 2] * self.kin.qdm[i - 1]
-            j_omega[:, i] = j_omega[:, i - 1] + temp  # j_w = [0_w_s, 0_w_j1, 0_w_j2, ...]
+        j_omega, _, _ = self.kin.velocities()
+        j_T_full, pv_origins, pv_com, j_com_vec = self.kin.position_vectors()
+        k = list()
+        omega = j_omega
+        # To find out which all joints have same origins. Refer notebook picture. q1 rotation does not change a1
+        # as it is on the rotation axis and hence there is no change in COM bcoz of q1_dot
+        for i in range(pv_origins.shape[1] - 1):
+            tm = pv_origins[:, i+1] - pv_origins[:, i]
+            if not (tm[0] or tm[1] or tm[2]):
+                k.append(i)
+        k = np.array(k)
+        if np.any(k):
+            for k in k:
+                omega.col_del(k)  # w = [0_w_s, 0_w_b, 0_w_j2, ...], 0_w_j1 deleted as this and origin j2 coincides
+        # pv_com = self.com_pos_vect()
+        # omega = zeros(3, self.nDoF + 1)  # matrix containing ang vel of spacecraft + each of the links wrt inertial
+        # omega[:, 0] = Matrix([[self.kin.w_sxd], [self.kin.w_syd], [self.kin.w_szd]])
+        # rot_full = self.kin.rotations_from_inertial()  # rot_full = [0_R_s, 0_R_rb, 0_R_j1, 0_R_j2, ...0_R_jeef]
+        # for i in range(1, self.nDoF + 1):
+        #     temp = rot_full[i + 1][:, 2] * self.kin.qdm[i - 1]
+        #     omega[:, i] = omega[:, i - 1] + temp  # j_w = [0_w_s, 0_w_j1, 0_w_j2, ...]
         omega_skew_sym = list()
-        for i in range(j_omega.shape[1]):
-            omega_skew_sym.append(self.kin.skew_matrix(j_omega[:, i]))
+        for i in range(omega.shape[1]):
+            omega_skew_sym.append(self.kin.skew_matrix(omega[:, i]))
 
         j_vel_com = zeros(3, self.nDoF + 1)  # matrix of linear vel of spacecraft + each of the links wrt inertial
         k11 = self.mass_frac()
         rs_d = zeros(3, 1)
         aa, bb = self.kin.ab_vectors()
         for i in range(self.nDoF):
-            rs_d += k11[i] * (
-                        omega_skew_sym[i] @ rot_full[i] @ bb[:, i] + omega_skew_sym[i + 1] @ rot_full[i + 1] @ aa[:, i])
+            rs_d += k11[i] * (omega_skew_sym[i] @ bb[:, i] + omega_skew_sym[i + 1] @ aa[:, i])
         j_vel_com[:, 0] = rs_d
         for i in range(1, self.nDoF + 1):
-            temp = (omega_skew_sym[i - 1] @ rot_full[i - 1] @ bb[:, i - 1] + omega_skew_sym[i] @ rot_full[i] @ aa[:,
-                                                                                                              i - 1])
+            temp = omega_skew_sym[i - 1] @ bb[:, i - 1] + omega_skew_sym[i] @ aa[:, i - 1]
             j_vel_com[:, i] = j_vel_com[:, i - 1] + temp  # [0_v_s, 0_v_com1, 0_v_com2, ...]
+        j_omega, _, _ = self.kin.velocities()  # this is called again since there is a bug in sympy. omega.col_del()
+        # deletes the same column in j_omega
         return j_omega, j_vel_com
 
     def linear_momentum_conservation(self):
@@ -328,7 +330,7 @@ class dynamics():
         return L
 
     def momentOfInertia_transform(self):
-        j_T_full, pv_origins, pv_com = self.kin.position_vectors()
+        j_T_full, pv_origins, pv_com, j_com_vec = self.kin.position_vectors()
         I = self.I
         rot_full = list()
         for i in range(len(j_T_full)):
@@ -494,10 +496,11 @@ if __name__ == '__main__':
     solver = Solver()
 
     # T_joint, T_i_i1 = kin.fwd_kin_symbolic(kin.qm)
-    # j_T_full, pv_origins, pv_com = kin.position_vectors()
+    # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
     # a, b = kin.ab_vectors()
-    omega, cm_vel, joint_velocity = kin.velocities()
-    # omega, vel_com = dyn.velocities_frm_momentum_conservation()
+    # omega, cm_vel, joint_velocity = kin.velocities()
+    # com_pv = dyn.com_pos_vect()
+    omega, vel_com = dyn.velocities_frm_momentum_conservation()
     # omega, com_vel, joint_velocity = kin.velocities()
 
     # kin_energy = dyn.kinetic_energy()
