@@ -1,6 +1,7 @@
 import numpy as np
 from sympy import *
 import matplotlib.pyplot as plt
+from eom_symbolic import kinematics
 from mpl_toolkits import mplot3d
 np.set_printoptions(precision=2)
 
@@ -9,6 +10,7 @@ class DH_plotter():
 
     def __init__(self, nDoF, robot='Franka'):
         self.nDoF = nDoF
+        self.kin = kinematics()
         if robot == 'Franka':
             # franka robot DH values
             self.a = np.array([0, 0, 0, 0.0825, -0.0825, 0, 0.088, 0])
@@ -17,9 +19,9 @@ class DH_plotter():
             self.eef_dist = 0.0
         else:  # 3DOF robot given in yoshida and umeneti: resolved motion rate control of space manipulators
             self.alpha = np.array([-np.pi / 2, np.pi / 2, 0.])
-            self.a = np.array([0., 0., 1.5])
-            self.d = np.array([1.0, 0., 0.])
-            self.eef_dist = 1.0
+            self.a = self.kin.a
+            self.d = self.kin.d
+            self.eef_dist = self.kin.eef_dist
 
     def robot_DH_matrix(self, q):
         t, T_joint, Ti = np.eye(4), np.zeros((self.nDoF+1, 4, 4)), np.zeros((self.nDoF+1, 4, 4))
