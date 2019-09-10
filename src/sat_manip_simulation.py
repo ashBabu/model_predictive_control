@@ -59,7 +59,7 @@ class Simulation(object):
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
-            ax.view_init(elev=64., azim=67.)
+            # ax.view_init(elev=64., azim=67.)
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
@@ -76,7 +76,7 @@ class Simulation(object):
                 self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
             plt.pause(0.1)
             # plt.savefig("%i" % i)
-            # plt.cla()
+            plt.cla()
 
     def simulation(self):
         sizes = self.kin.size
@@ -90,19 +90,22 @@ class Simulation(object):
         q1_dot, q2_dot, q3_dot = q_dot[0, :], q_dot[1, :], q_dot[2, :]
 
         fig1 = plt.figure(2)
-        plt.plot(t, r_sx)
-        plt.plot(t, r_sy)
-        plt.plot(t, r_sz)
+        plt.plot(t, r_sx, label='satellite_x_position')
+        plt.plot(t, r_sy, label='satellite_y_position')
+        plt.plot(t, r_sz, label='satellite_z_position')
+        plt.legend()
 
         fig2 = plt.figure(3)
-        plt.plot(t, ang_sx)
-        plt.plot(t, ang_sy)
-        plt.plot(t, ang_sz)
+        plt.plot(t, ang_sx, label='satellite_ang_x_position')
+        plt.plot(t, ang_sy, label='satellite_ang_y_position')
+        plt.plot(t, ang_sz, label='satellite_ang_z_position')
+        plt.legend()
 
         fig3 = plt.figure(4)
-        plt.plot(t, q1_dot)
-        plt.plot(t, q2_dot)
-        plt.plot(t, q3_dot)
+        plt.plot(t, q1_dot, label='q1_dot')
+        plt.plot(t, q2_dot, label='q2_dot')
+        plt.plot(t, q3_dot, label='q3_dot')
+        plt.legend()
         plt.show()
 
 
