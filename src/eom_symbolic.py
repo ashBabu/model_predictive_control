@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import fsolve
 from sympy import *
 from sympy.physics.mechanics import *
 from sympy.tensor.array import Array
@@ -296,7 +297,7 @@ class dynamics():
             pv_com[:, i] = pv_com[:, i - 1] + bb[:, i - 1] + aa[:, i - 1]  # # [j_rs, j_r1, j_r2, ...]
             # temp.applyfunc(simplify)
 
-        pv_eef = pv_com[:, -1] + bb[:, -1]  # pos vec of eef wrt inertial
+        pv_eef = pv_com[:, -1] + bb[:, -1]  # pos vec of eef wrt inertial = last entry of pv_origin
         pv_origin = zeros(3, self.nDoF + 2)  # includes eef origin
         pv_origin[:, 0] = r0
         pv_origin[:, 1] = pv_origin[:, 0] + bb[:, 0]
@@ -371,19 +372,43 @@ class dynamics():
             # I_o = I_com + I_/com
         return L
 
+    def solve_com_non_lin_eq(self, non_lin_eq):
+        p = (self.kin.ang_xs, self.kin.ang_ys, self.kin.ang_zs)
+        m, temp = self.mass, zeros(3, 1)
+        for i in range(len(m)):
+            temp += m[i] * non_lin_eq[:, i]
+        eq1, eq2, eq3 = Eq(temp[0]), Eq(temp[1]), Eq(temp[2])
+        return solve([eq1, eq2, eq3], p)
+
     def substitute(self, parm,  m, l, I, b, ang_s0, ang_b0, r_s0, q0,):
         for i in range(len(m)):
             parm = msubs(parm, {self.m[i]: m[i]})
         for i in range(len(I)):
             parm = msubs(parm, {self.I_full[i]: I[i]})
+        for i in range(len(l)):
+            parm = msubs(parm, {self.kin.l[i]: l[i]})
         for i in range(len(q0)):
             parm = msubs(parm, {self.kin.qm[i]: q0[i]})
         parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.ang_xb: ang_b0[0],
                             self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2], self.kin.ang_xs: ang_s0[0],
                             self.kin.ang_ys: ang_s0[1], self.kin.ang_zs: ang_s0[2], self.kin.r_sx: r_s0[0],
                             self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
+        return parm
+
+    def substitute1(self, parm,  m, l, I, b, ang_b0, q0,):
+        for i in range(len(m)):
+            parm = msubs(parm, {self.m[i]: m[i]})
+        for i in range(len(I)):
+            parm = msubs(parm, {self.I_full[i]: I[i]})
         for i in range(len(l)):
             parm = msubs(parm, {self.kin.l[i]: l[i]})
+        for i in range(len(q0)):
+            parm = msubs(parm, {self.kin.qm[i]: q0[i]})
+        ang_sx, ang_sy, ang_sz = self.solve_com_non_lin_eq(parm)
+        parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.ang_xb: ang_b0[0],
+                            self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2], self.kin.ang_xs: ang_sx,
+                            self.kin.ang_ys: ang_sy, self.kin.ang_zs: ang_sz, self.kin.r_sx: r_s0[0],
+                            self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
         return parm
 
     def jacobian(self, m, l, I, b, ang_s0, ang_b0, r_s0, q0,):
@@ -475,6 +500,9 @@ class dynamics():
         l = self.kin.l_numeric[1:]  # cutting out satellite length l0
         r_s0, ang_s0, ang_b, q0, b0 = self.kin.r_s0, self.kin.ang_s0, self.kin.ang_b, self.kin.q0, self.kin.b0
 
+        pv_com, _, _ = self.com_pos_vect()
+        pv_com_num = self.substitute1(pv_com, m, l, I, b0, ang_b, q0)
+        # rs_num = self.substitute(rs, m, l, I, b0, ang_s0, ang_b, r_s0, q0)
         q1_dot, q2_dot, q3_dot, t = self.jnt_vel_prof_req()
 
         qdm_numeric = np.vstack((q1_dot, q2_dot, q3_dot))
@@ -532,7 +560,7 @@ if __name__ == '__main__':
     # ang_s0, ang_b, b0 = np.array([0., np.pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
     #
     # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
-    jac = dyn.jacobian(m, l, I, b0, ang_s0, ang_b, r_s0, q0)
+    # jac = dyn.jacobian(m, l, I, b0, ang_s0, ang_b, r_s0, q0)
     #
     # # static plot
     # fig = plt.figure()
@@ -560,7 +588,7 @@ if __name__ == '__main__':
     # omega, cm_vel, joint_velocity = kin.velocities()
     # omega, vel_com = dyn.velocities_frm_momentum_conservation()
     # I = dyn.momentOfInertia_transform()
-    # r_s, ang_s, q, qdm_numeric, t = dyn.get_positions()
+    r_s, ang_s, q, qdm_numeric, t = dyn.get_positions()
     # kin_energy = dyn.kinetic_energy()
     # M, C = dyn.get_dyn_para()
     # M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
