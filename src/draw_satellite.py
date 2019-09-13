@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 
 class SatellitePlotter(object):
@@ -59,6 +61,30 @@ class SatellitePlotter(object):
             plt.pause(0.2)
             plt.cla()
 
+    def cube_plot(self, p=(0, 0, 0), size=(1, 1, 1)):
+        # xc, yc, zc = self.cuboid_data(p, size)
+        # fig = plt.figure()
+        # ax = fig.gca(projection='3d')
+        px, py, pz = p[0], p[1], p[2]
+        l, b, h = size[0], size[1], size[2]
+        xx = np.array([px+l/2, px-l/2, px-l/2, px+l/2, px+l/2, px+l/2, px-l/2, px-l/2, px+l/2, px+l/2, px-l/2, px-l/2, px-l/2, px-l/2, px+l/2, px+l/2])
+        yy = np.array([py+b/2, py+b/2, py-b/2, py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py-b/2, py-b/2])
+        zz = np.array([pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz+h/2, pz+h/2, pz+h/2, pz+h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2])
+
+        # ax.plot(xx, yy, zz, lw=5)
+        # plt.xlabel('X')
+        # plt.ylabel('Y')
+        #
+        # # Plot the surface.
+        #
+        #
+        # # Customize the z axis.
+        # # ax.set_zlim(-1.01, 1.01)
+        # ax.zaxis.set_major_locator(LinearLocator(10))
+        # ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+
+        return xx, yy, zz
+
 
 if __name__ == '__main__':
     rot_angle = np.linspace(0, 2*np.pi/4, 50)
@@ -66,5 +92,8 @@ if __name__ == '__main__':
     sizes = [(2, 2, 2), (3, 3, 7)]
     sat_plot = SatellitePlotter()
     colors = ["crimson", "limegreen"]
-    sat_plot.call_plot(positions, sizes, colors, rot_angle)
+    # sat_plot.call_plot(positions, sizes, colors, rot_angle)
+    sat_plot.cube_plot()
+
+    print('hi')
 

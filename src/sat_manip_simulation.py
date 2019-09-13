@@ -5,7 +5,7 @@ from dh_plotter import DH_plotter
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
-np.set_printoptions(precision=2)
+np.set_printoptions(precision=3)
 
 
 class Simulation(object):
@@ -24,33 +24,40 @@ class Simulation(object):
         Rz = R.from_rotvec(rot_ang[2] * np.array([0, 0, 1]))
         Rx, Ry, Rz = Rx.as_dcm(), Ry.as_dcm(), Rz.as_dcm()
         Rot = Rx @ Ry @ Rz
-        ang_z = self.kin.ang_zb
-        Rz90 = R.from_rotvec(ang_z * np.array([0, 0, 1]))  # Refer picture. It is assumed that robot base origin is
-        # on the x axis of the satellite COM CS rotated by -90 degrees. This is also there as ang_zb in eom_symbolic
-        Rz90 = Rz90.as_dcm()
-        Ts, Tc = np.eye(4), np.eye(4)
-        Ts[0:3, 0:3], Tc[0:3, 0:3] = Rot, Rz90
-        Ts[0:3, 3] = np.array([pos[0], pos[1], pos[2]])
-        Tc[0:3, 3] = np.array([size[0]/2, size[0]/2, 0])  # the vector b's x comp and size[0]/2 has to be same
-        # Tc[0:3, 3] = np.array([0.7, 0, 0])  # the vector b's x comp and size[0]/2 has to be same
-        T1 = Ts @ Tc
+        ang_zb = self.kin.ang_zb
+        Rz_b = R.from_rotvec(ang_zb * np.array([0, 0, 1]))  # Refer pict.
+        Rz_b = Rz_b.as_dcm()
+        j_Ts, s_Tb = np.eye(4), np.eye(4)  # j_Ts = transf. matrix from inertial {j} to satellite; s_Tb = transf. matrix
+        # from satellite to robot base
+        j_Ts[0:3, 0:3], s_Tb[0:3, 0:3] = Rot, Rz_b
+        j_Ts[0:3, 3] = np.array([pos[0], pos[1], pos[2]])
+        s_Tb[0:3, 3] = self.kin.b0  # the vector b's x comp and size[0]/2 has to be same
+        # s_Tb[0:3, 3] = np.array([0.7, 0, 0])  # the vector b's x comp and size[0]/2 has to be same
+        j_Tb = j_Ts @ s_Tb
         T_joint_manip, Ti = self.DHPlot.robot_DH_matrix(q)
         T_combined = np.zeros((T_joint_manip.shape[0]+2, 4, 4))
-        T_combined[0, :, :], T_combined[1, :, :] = Ts, T1
+        T_combined[0, :, :], T_combined[1, :, :] = j_Ts, j_Tb
         for i in range(2, T_joint_manip.shape[0]+2):
-            T_combined[i, :, :] = T1 @ T_joint_manip[i-2, :, :]
+            T_combined[i, :, :] = j_Tb @ T_joint_manip[i-2, :, :]
         a = 3.5
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
-            X, Y, Z = self.satPlot.cuboid_data(pos, size)
-            sh = X.shape
-            # The below steps are included to rotate the cube
-            x, y, z = X.reshape(-1), Y.reshape(-1), Z.reshape(-1)
-            m = np.stack((x, y, z))
+            xxx, yyy, zzz = self.satPlot.cube_plot(pos, size)
+           ###############
+            # X, Y, Z = self.satPlot.cuboid_data(pos, size)
+            # sh = X.shape
+            # # The below steps are included to rotate the cube
+            # x, y, z = X.reshape(-1), Y.reshape(-1), Z.reshape(-1)
+            # m = np.stack((x, y, z))
+           ################
+            m = np.vstack((xxx, yyy, zzz))
             mr = Rot @ m
-            x, y, z = mr[0, :].reshape(sh), mr[1, :].reshape(sh), mr[2, :].reshape(sh)
-            ax.plot_surface(x, y, z, rstride=1, cstride=1, **kwargs)
+
+            # x, y, z = mr[0, :].reshape(sh), mr[1, :].reshape(sh), mr[2, :].reshape(sh)
+            # ax.plot_surface(x, y, z, rstride=1, cstride=1, **kwargs)
+            x, y, z = mr[0, :], mr[1, :], mr[2, :]
+            ax.plot(x, y, z, lw=5)
 
             for i in range(2, T_combined.shape[0]):
                 ax.plot([xx, T_combined[i, 0, 3]], [yy, T_combined[i, 1, 3]], [zz, T_combined[i, 2, 3]], lw=5)
@@ -59,6 +66,7 @@ class Simulation(object):
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
+            ax.set_aspect("equal")
             # ax.view_init(elev=64., azim=67.)
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
@@ -89,19 +97,19 @@ class Simulation(object):
         q1, q2, q3 = q[0, :], q[1, :], q[2, :]
         q1_dot, q2_dot, q3_dot = q_dot[0, :], q_dot[1, :], q_dot[2, :]
 
-        fig1 = plt.figure(2)
+        fig1 = plt.figure()
         plt.plot(t, r_sx, label='satellite_x_position')
         plt.plot(t, r_sy, label='satellite_y_position')
         plt.plot(t, r_sz, label='satellite_z_position')
         plt.legend()
 
-        fig2 = plt.figure(3)
+        fig2 = plt.figure()
         plt.plot(t, ang_sx, label='satellite_ang_x_position')
         plt.plot(t, ang_sy, label='satellite_ang_y_position')
         plt.plot(t, ang_sz, label='satellite_ang_z_position')
         plt.legend()
 
-        fig3 = plt.figure(4)
+        fig3 = plt.figure()
         plt.plot(t, q1_dot, label='q1_dot')
         plt.plot(t, q2_dot, label='q2_dot')
         plt.plot(t, q3_dot, label='q3_dot')
