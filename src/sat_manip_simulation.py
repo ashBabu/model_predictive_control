@@ -41,6 +41,7 @@ class Simulation(object):
             T_combined[i, :, :] = j_Tb @ T_joint_manip[i-2, :, :]
         a = 3.5
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
+        print((xx, yy, zz))
         ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
             xxx, yyy, zzz = self.satPlot.cube_plot(pos, size)
@@ -66,11 +67,12 @@ class Simulation(object):
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
-            ax.set_aspect("equal")
             # ax.view_init(elev=64., azim=67.)
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
+            print(j_Tb,)
+            print('hi')
 
     def call_plot(self, pos, size, color, rot_ang, q):
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
