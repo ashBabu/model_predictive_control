@@ -59,6 +59,8 @@ class Simulation(object):
             # ax.plot_surface(x, y, z, rstride=1, cstride=1, **kwargs)
             x, y, z = mr[0, :], mr[1, :], mr[2, :]
             ax.plot(x, y, z, lw=5)
+            ax.scatter(0, 0, 0, lw=5)
+            ax.scatter(pos[0], pos[1], pos[2], lw=5)
 
             for i in range(2, T_combined.shape[0]):
                 ax.plot([xx, T_combined[i, 0, 3]], [yy, T_combined[i, 1, 3]], [zz, T_combined[i, 2, 3]], lw=5)
@@ -82,11 +84,11 @@ class Simulation(object):
         for i in range(rot_ang.shape[1]):
             temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
             qi = q[:, i]
+            plt.cla()
             for p, s, c in zip(temp, size, color):
                 self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
             plt.pause(0.1)
             # plt.savefig("%i" % i)
-            plt.cla()
 
     def simulation(self):
         sizes = self.kin.size
