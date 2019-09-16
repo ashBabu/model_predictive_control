@@ -17,15 +17,22 @@ class Simulation(object):
         self.satPlot = SatellitePlotter()
         self.DHPlot = DH_plotter(self.nDoF, robot='3DoF')
 
-    def satellite_namipulator(self, rot_ang, q, pos=(0, 0, 0), size=(1, 1, 1), ax=None, **kwargs):
+    def rotation_matrix(self, ang):
+        rx = [[1, 0, 0], [0, np.cos(ang[0]), -np.sin(ang[0])], [0, np.sin(ang[0]), np.cos(ang[0])]]
+        ry = [[np.cos(ang[1]), 0, np.sin(ang[1])], [0, 1, 0], [-np.sin(ang[1]), 0, np.cos(ang[1])]]
+        rz = [[np.cos(ang[2]), -np.sin(ang[2]), 0], [np.sin(ang[2]), np.cos(ang[2]), 0], [0, 0, 1]]
+        return np.array(rx), np.array(ry), np.array(rz)
+
+    def satellite_namipulator(self, rot_ang, q, pos, size, ax=None, **kwargs):
         # rot_ang = [ang_sx, ang_sy, ang_sz], q = [q1, q2, ...]
         Rx = R.from_rotvec(rot_ang[0] * np.array([1, 0, 0]))
         Ry = R.from_rotvec(rot_ang[1] * np.array([0, 1, 0]))
         Rz = R.from_rotvec(rot_ang[2] * np.array([0, 0, 1]))
         Rx, Ry, Rz = Rx.as_dcm(), Ry.as_dcm(), Rz.as_dcm()
+        # Rx, Ry, Rz = self.rotation_matrix(rot_ang)
         Rot = Rx @ Ry @ Rz
         ang_zb = self.kin.ang_zb
-        Rz_b = R.from_rotvec(ang_zb * np.array([0, 0, 1]))  # Refer pict.
+        Rz_b = R.from_rotvec(ang_zb * np.array([0, 0, 1]))  # Refer pic.
         Rz_b = Rz_b.as_dcm()
         j_Ts, s_Tb = np.eye(4), np.eye(4)  # j_Ts = transf. matrix from inertial {j} to satellite; s_Tb = transf. matrix
         # from satellite to robot base
@@ -39,28 +46,18 @@ class Simulation(object):
         T_combined[0, :, :], T_combined[1, :, :] = j_Ts, j_Tb
         for i in range(2, T_joint_manip.shape[0]+2):
             T_combined[i, :, :] = j_Tb @ T_joint_manip[i-2, :, :]
-        a = 3.5
+        a = 4.2
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         print((xx, yy, zz))
         ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
-            xxx, yyy, zzz = self.satPlot.cube_plot(pos, size)
-           ###############
-            # X, Y, Z = self.satPlot.cuboid_data(pos, size)
-            # sh = X.shape
-            # # The below steps are included to rotate the cube
-            # x, y, z = X.reshape(-1), Y.reshape(-1), Z.reshape(-1)
-            # m = np.stack((x, y, z))
-           ################
+            xxx, yyy, zzz = self.satPlot.cube_plot((0, 0, 0), size)
             m = np.vstack((xxx, yyy, zzz))
-            mr = Rot @ m
-
-            # x, y, z = mr[0, :].reshape(sh), mr[1, :].reshape(sh), mr[2, :].reshape(sh)
-            # ax.plot_surface(x, y, z, rstride=1, cstride=1, **kwargs)
+            mr = Rot @ m + np.array([[pos[0]], [pos[1]], [pos[2]]])
             x, y, z = mr[0, :], mr[1, :], mr[2, :]
             ax.plot(x, y, z, lw=5)
             ax.scatter(0, 0, 0, lw=5)
-            ax.scatter(pos[0], pos[1], pos[2], lw=5)
+            # ax.scatter(pos[0], pos[1], pos[2], lw=5)
 
             for i in range(2, T_combined.shape[0]):
                 ax.plot([xx, T_combined[i, 0, 3]], [yy, T_combined[i, 1, 3]], [zz, T_combined[i, 2, 3]], lw=5)
@@ -73,14 +70,13 @@ class Simulation(object):
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
-            print(j_Tb,)
-            print('hi')
 
-    def call_plot(self, pos, size, color, rot_ang, q):
+    def call_plot(self, pos, size, color, rot_ang, q, ax=None):
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        ax.set_aspect('equal')
+        if not ax:
+            fig = plt.figure()
+            ax = fig.gca(projection='3d')
+            ax.set_aspect('equal')
         for i in range(rot_ang.shape[1]):
             temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
             qi = q[:, i]
@@ -108,9 +104,9 @@ class Simulation(object):
         plt.legend()
 
         fig2 = plt.figure()
-        plt.plot(t, ang_sx, label='satellite_ang_x_position')
-        plt.plot(t, ang_sy, label='satellite_ang_y_position')
-        plt.plot(t, ang_sz, label='satellite_ang_z_position')
+        plt.plot(t, ang_sx, label='satellite_x_rotation')
+        plt.plot(t, ang_sy, label='satellite_y_rotation')
+        plt.plot(t, ang_sz, label='satellite_z_rotation')
         plt.legend()
 
         fig3 = plt.figure()

@@ -252,7 +252,7 @@ class dynamics():
         self.kin = kinematics()
 
         # numeric values
-        self.mass = Array([20.0, 20.0, 50.0, 50.0])  # mass of satellite and each of the links respec
+        self.mass = Array([2000.0, 20.0, 50.0, 50.0])  # mass of satellite and each of the links respec
         self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
         self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
         self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
@@ -389,7 +389,7 @@ class dynamics():
     #     print(Js.shape, Jm.shape)
     #     return Js, Jm
 
-    def substitute(self, parm,  m, l, I, b, ang_s0, ang_b0, r_s0, q0,):
+    def substitute(self, parm,  m, l, I, b, ang_b0, r_s0, ang_s0, q0,):
         for i in range(len(m)):
             parm = msubs(parm, {self.m[i]: m[i]})
         for i in range(len(I)):
@@ -404,11 +404,11 @@ class dynamics():
                             self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
         return parm
 
-    def calculate_spacecraft_ang_vel(self, m, l, I, b, ang_s0, ang_b0, r_s0, q0, qdm_numeric):
+    def calculate_spacecraft_ang_vel(self, m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric):
         L = self.ang_momentum_conservation()
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
-        L_num = self.substitute(L, m, l, I, b, ang_s0, ang_b0, r_s0, q0)
+        L_num = self.substitute(L, m, l, I, b, ang_b0, r_s0, ang_s0, q0)
         Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
         Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
         shp = qdm_numeric.shape[1]
@@ -417,11 +417,11 @@ class dynamics():
             omega_s[:, i] = np.linalg.solve(Ls, (Lm @ qdm_numeric[:, i]))
         return omega_s
 
-    def calculate_spacecraft_lin_vel(self,  m, l, I, b, ang_s0, ang_b0, r_s0, q0, qdm_numeric):
-        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_s0, ang_b0, r_s0, q0, qdm_numeric)
+    def calculate_spacecraft_lin_vel(self,  m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric):
+        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
         shp = omega_s.shape[1]
         j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
-        j_vel_com_num = self.substitute(j_vel_com, m, l, I, b, ang_s0, ang_b0, r_s0, q0)
+        j_vel_com_num = self.substitute(j_vel_com, m, l, I, b, ang_b0, r_s0, ang_s0, q0)
         v_com = np.zeros((shp, 3, self.nDoF+1))
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]

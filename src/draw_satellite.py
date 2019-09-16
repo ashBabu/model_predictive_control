@@ -61,15 +61,18 @@ class SatellitePlotter(object):
             plt.pause(0.2)
             plt.cla()
 
-    def cube_plot(self, p=(0, 0, 0), size=(1, 1, 1)):
+    def cube_plot(self, p, size):
         # xc, yc, zc = self.cuboid_data(p, size)
         # fig = plt.figure()
         # ax = fig.gca(projection='3d')
         px, py, pz = p[0], p[1], p[2]
         l, b, h = size[0], size[1], size[2]
-        xx = np.array([px+l/2, px-l/2, px-l/2, px+l/2, px+l/2, px+l/2, px-l/2, px-l/2, px+l/2, px+l/2, px-l/2, px-l/2, px-l/2, px-l/2, px+l/2, px+l/2])
-        yy = np.array([py+b/2, py+b/2, py-b/2, py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py-b/2, py-b/2])
-        zz = np.array([pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz+h/2, pz+h/2, pz+h/2, pz+h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2])
+        xx = np.array([px+l/2, px-l/2, px-l/2, px+l/2, px+l/2, px+l/2, px-l/2, px-l/2,
+                       px+l/2, px+l/2, px-l/2, px-l/2, px-l/2, px-l/2, px+l/2, px+l/2, px-l/2, px+l/2, px-l/2])
+        yy = np.array([py+b/2, py+b/2, py-b/2, py-b/2, py+b/2, py+b/2, py+b/2, py-b/2,
+                       py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py-b/2, py-b/2, py+b/2, py+b/2, py-b/2])
+        zz = np.array([pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz+h/2,
+                       pz+h/2, pz+h/2, pz+h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2])
 
         # ax.plot(xx, yy, zz, lw=5)
         # plt.xlabel('X')
