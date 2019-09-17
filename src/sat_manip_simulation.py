@@ -48,10 +48,9 @@ class Simulation(object):
             T_combined[i, :, :] = j_Tb @ T_joint_manip[i-2, :, :]
         a = 4.2
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
-        print((xx, yy, zz))
         ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
-            xxx, yyy, zzz = self.satPlot.cube_plot((0, 0, 0), size)
+            xxx, yyy, zzz = self.satPlot.cube_data2((0, 0, 0), size)
             m = np.vstack((xxx, yyy, zzz))
             mr = Rot @ m + np.array([[pos[0]], [pos[1]], [pos[2]]])
             x, y, z = mr[0, :], mr[1, :], mr[2, :]
@@ -84,7 +83,8 @@ class Simulation(object):
             for p, s, c in zip(temp, size, color):
                 self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
             plt.pause(0.1)
-            # plt.savefig("%i" % i)
+            # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
+            # print('hi')
 
     def simulation(self):
         sizes = self.kin.size

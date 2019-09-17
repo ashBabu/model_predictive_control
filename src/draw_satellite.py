@@ -61,7 +61,7 @@ class SatellitePlotter(object):
             plt.pause(0.2)
             plt.cla()
 
-    def cube_plot(self, p, size):
+    def cube_data2(self, p, size):
         # xc, yc, zc = self.cuboid_data(p, size)
         # fig = plt.figure()
         # ax = fig.gca(projection='3d')
@@ -73,20 +73,23 @@ class SatellitePlotter(object):
                        py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py-b/2, py-b/2, py+b/2, py+b/2, py-b/2])
         zz = np.array([pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz+h/2,
                        pz+h/2, pz+h/2, pz+h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2])
-
-        # ax.plot(xx, yy, zz, lw=5)
-        # plt.xlabel('X')
-        # plt.ylabel('Y')
-        #
-        # # Plot the surface.
-        #
-        #
-        # # Customize the z axis.
-        # # ax.set_zlim(-1.01, 1.01)
-        # ax.zaxis.set_major_locator(LinearLocator(10))
-        # ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
-
         return xx, yy, zz
+
+    def plt_cube(self, p, size):
+        xx, yy, zz = self.cube_data2(p, size)
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.plot(xx, yy, zz, lw=5)
+        plt.xlabel('X')
+        plt.ylabel('Y')
+
+        # Plot the surface.
+
+
+        # Customize the z axis.
+        # ax.set_zlim(-1.01, 1.01)
+        ax.zaxis.set_major_locator(LinearLocator(10))
+        ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
 
 
 if __name__ == '__main__':
@@ -96,7 +99,7 @@ if __name__ == '__main__':
     sat_plot = SatellitePlotter()
     colors = ["crimson", "limegreen"]
     # sat_plot.call_plot(positions, sizes, colors, rot_angle)
-    sat_plot.cube_plot()
-
+    sat_plot.plt_cube((1, 1, 1), (2, 2, 2))
+    plt.show()
     print('hi')
 

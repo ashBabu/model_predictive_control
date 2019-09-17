@@ -45,19 +45,19 @@ class DH_plotter():
     def plotter(self, ax, Tt, lgnd, color='r'):
         for j in range(len(Tt)):
             x, y, z = 0, 0, 0
+            plt.ylabel('Y')
+            plt.cla()
             T_joint = Tt[j]
             for i in range(T_joint.shape[0]):
                 ax.plot([x, T_joint[i, 0, 3]], [y, T_joint[i, 1, 3]], [z, T_joint[i, 2, 3]], color, lw=10, label=lgnd)
                 ax.scatter(T_joint[i, 0, 3], T_joint[i, 1, 3], T_joint[i, 2, 3], 'gray', lw=10)
                 x, y, z = T_joint[i, 0, 3], T_joint[i, 1, 3], T_joint[i, 2, 3]
                 # ax.axis('equal')
-                ax.set_zlim(0., 1.)
-                ax.set_ylim(0., 2.)
-                ax.set_xlim(-1., 1.)
+                ax.set_zlim(0., 2.)
+                ax.set_ylim(0., 3.)
+                ax.set_xlim(-2., 2.)
                 plt.xlabel('X')
-                plt.ylabel('Y')
             plt.pause(0.01)
-            plt.cla()
 
 
 if __name__ == '__main__':

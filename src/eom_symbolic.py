@@ -252,7 +252,7 @@ class dynamics():
         self.kin = kinematics()
 
         # numeric values
-        self.mass = Array([2000.0, 20.0, 50.0, 50.0])  # mass of satellite and each of the links respec
+        self.mass = Array([20.0, 20.0, 50.0, 50.0])  # mass of satellite and each of the links respec
         self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
         self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
         self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
@@ -480,14 +480,14 @@ class dynamics():
         solver = Solver()
         m, I = self.mass, self.I_numeric
         l = self.kin.l_numeric[1:]  # cutting out satellite length l0
-        r_s0, ang_s0, ang_b, q0, b0 = self.kin.r_s0, self.kin.ang_s0, self.kin.ang_b, self.kin.q0, self.kin.b0
+        r_s0, ang_s0, ang_b0, q0, b = self.kin.r_s0, self.kin.ang_s0, self.kin.ang_b, self.kin.q0, self.kin.b0
 
         q1_dot, q2_dot, q3_dot, t = self.jnt_vel_prof_req()
 
         qdm_numeric = np.vstack((q1_dot, q2_dot, q3_dot))
 
-        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b0, ang_s0, ang_b, r_s0, q0, qdm_numeric)
-        v_com = self.calculate_spacecraft_lin_vel(m, l, I, b0, ang_s0, ang_b, r_s0, q0, qdm_numeric)
+        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
+        v_com = self.calculate_spacecraft_lin_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
         vs = v_com[:, :, 0]
         vs = np.transpose(vs)
         # v_com1 = v_com[:, :, 1]
