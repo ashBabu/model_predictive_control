@@ -31,7 +31,7 @@ class DH_plotter():
             T = np.array([[np.cos(q[i]), -np.sin(q[i]), 0, self.a[i]],
                           [np.sin(q[i]) * np.cos(self.alpha[i]), np.cos(q[i]) * np.cos(self.alpha[i]), -np.sin(self.alpha[i]), -np.sin(self.alpha[i]) * self.d[i]],
                           [np.sin(q[i]) * np.sin(self.alpha[i]), np.cos(q[i]) * np.sin(self.alpha[i]), np.cos(self.alpha[i]), np.cos(self.alpha[i]) * self.d[i]],
-                          [0, 0, 0, 1]])
+                          [0, 0, 0, 1]], dtype='float')
             t = t @ T
             Ti[i, :, :] = T
             T_joint[i, :, :] = t
