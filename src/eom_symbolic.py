@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, root
 from sympy import *
 from sympy.physics.mechanics import *
 from sympy.tensor.array import Array
@@ -17,14 +17,14 @@ class kinematics():
 
         if robot == '3DoF':  # as given in umeneti and yoshida: resolved motion rate control of space manipulators
             self.l_numeric = Array([3.5, 0.25, 2.5, 2.5])
-            self.ang_s0 = np.array([0., 0., 0.])
-            self.r_s0 = np.array([0.01, 0.01, 0.0])
-            self.q0 = np.array([pi / 3 * 0, -3*pi / 4, pi/2])  # as given in Umaneti and Yoshida: Resolved..
-            # self.q0 = np.array([pi / 3 * 0, pi / 2, 0])
+            self.ang_s0 = Array([0., 0., 0.])
+            self.r_s0 = Array([0.01, 0.01, 0.0])
+            self.q0 = Array([pi / 3 * 0, 3*pi / 4, pi/2])  # as given in Umaneti and Yoshida: Resolved..
+            # self.q0 = Array([pi / 3 * 0, pi / 2, 0])
             # DH parameters:
-            self.alpha = np.array([-pi / 2, pi / 2, 0.])
-            self.a = np.array([0., 0., 2.5])
-            self.d = np.array([0.25, 0., 0.])
+            self.alpha = Array([-pi / 2, pi / 2, 0.])
+            self.a = Array([0., 0., 2.5])
+            self.d = Array([0.25, 0., 0.])
             self.eef_dist = 2.50  # l3
         else:
             self.a = Array([0, *self.l])
@@ -346,21 +346,25 @@ class dynamics():
     # def solve_com_non_lin_eq(self, non_lin_eq):
     #     p = (self.kin.ang_xs, self.kin.ang_ys, self.kin.ang_zs)
     #     m, temp = self.mass, zeros(3, 1)
-    #     for i in range(len(m)):
+    #     for i in range(non_lin_eq.shape[1]):
     #         temp += m[i] * non_lin_eq[:, i]
     #     temp = temp.applyfunc(trigsimp)
     #     eq1, eq2, eq3 = Eq(temp[0]), Eq(temp[1]), Eq(temp[2])
-    #     return solve([eq1, eq2, eq3], p)
+    #     return solve([eq1, eq2, eq3], p, check=False, simplify=False)
     #
     # def equations(self, p, non_lin_eq):
-    #     self.kin.ang_xs, self.kin.ang_ys, self.kin.ang_zs = p
+    #     ang_xs, ang_ys, ang_zs = self.kin.ang_xs, self.kin.ang_ys, self.kin.ang_zs
+    #     ang_xs, ang_ys, ang_zs = p
     #     m, temp = self.mass, zeros(3, 1)
     #     for i in range(len(m)):
     #         temp += m[i] * non_lin_eq[:, i]
-    #     temp = temp.applyfunc(trigsimp)
-    #     temp = temp.evalf(4)
-    #     return (temp[0], temp[1], temp[2])
-    #
+    #     # temp = temp.applyfunc(trigsimp)
+    #     # temp = temp.evalf(4)
+    #     f = [temp[0],
+    #          temp[1],
+    #          temp[2]]
+    #     return f
+
     # def substitute1(self, parm,  m, l, I, b, ang_b0, q0,):
     #     for i in range(len(m)):
     #         parm = msubs(parm, {self.m[i]: m[i]})
@@ -370,45 +374,71 @@ class dynamics():
     #         parm = msubs(parm, {self.kin.l[i]: l[i]})
     #     for i in range(len(q0)):
     #         parm = msubs(parm, {self.kin.qm[i]: q0[i]})
-    #     ang_sx, ang_sy, ang_sz = self.solve_com_non_lin_eq(parm)
-    #     # ang_sx, ang_sy, ang_sz = fsolve(self.equations, (0.01, 0.01, 0.01), args=parm)
+    #     # ang_s = self.solve_com_non_lin_eq(parm)
+    #
+    #     ang_xs, ang_ys, ang_zs = self.kin.ang_xs, self.kin.ang_ys, self.kin.ang_zs
+    #     qsin = Array([sin(ang_xs), cos(ang_xs), sin(ang_ys), cos(ang_ys), sin(ang_zs), cos(ang_zs)])
+    #     m, temp = self.mass, zeros(3, 1)
+    #     for i in range(parm.shape[1]):
+    #         temp += m[i] * parm[:, i]
+    #     # temp = temp.applyfunc(trigsimp)
+    #     # temp = temp.evalf(4)
+    #     tt = temp.jacobian(qsin)
+    #
+    #     def equ(p):
+    #         ang_xs, ang_ys, ang_zs = self.kin.ang_xs, self.kin.ang_ys, self.kin.ang_zs
+    #         ang_xs, ang_ys, ang_zs = p[0], p[1], p[2]
+    #         qsin = Array([sin(ang_xs), cos(ang_xs), sin(ang_ys), cos(ang_ys), sin(ang_zs), cos(ang_zs)])
+    #         m, temp = self.mass, zeros(3, 1)
+    #         for i in range(len(m)):
+    #             temp += m[i] * parm[:, i]
+    #         # temp = temp.applyfunc(trigsimp)
+    #         # temp = temp.evalf(4)
+    #         tt = temp.jacobian(qsin)
+    #         f = [temp[0],
+    #              temp[1],
+    #              temp[2]]
+    #         return f
+    #     # a = root(self.equations, [0.01, 0.01, 0.01], args=parm)
+    #     a = root(equ, [0.01, 0.01, 0.01])
     #     parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.ang_xb: ang_b0[0],
     #                         self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2], self.kin.ang_xs: ang_sx,
     #                         self.kin.ang_ys: ang_sy, self.kin.ang_zs: ang_sz, self.kin.r_sx: r_s0[0],
     #                         self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
     #     return parm
-    #
-    # def jacobian(self, m, l, I, b, ang_s0, ang_b0, r_s0, q0,):
-    #     _, eef_pv, _ = dyn.com_pos_vect()  # includes angular momentum conserv
-    #     t = Symbol('t')
-    #     eef_vel = diff(eef_pv, t)
-    #     # eef_vel = self.substitute(eef_vel, m, l, I, b, ang_s0, ang_b0, r_s0, q0)
-    #     qd = self.kin.qd[3:]
-    #     qd_s, qd_m = qd[0:3], qd[3:]
-    #     Js, Jm = eef_vel.jacobian(qd_s), eef_vel.jacobian(qd_m)
-    #     print(Js.shape, Jm.shape)
-    #     return Js, Jm
 
-    def substitute(self, parm,  m, l, I, b, ang_b0, r_s0, ang_s0, q0,):
-        for i in range(len(m)):
-            parm = msubs(parm, {self.m[i]: m[i]})
-        for i in range(len(I)):
-            parm = msubs(parm, {self.I_full[i]: I[i]})
-        for i in range(len(l)):
-            parm = msubs(parm, {self.kin.l[i]: l[i]})
-        for i in range(len(q0)):
-            parm = msubs(parm, {self.kin.qm[i]: q0[i]})
-        parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.ang_xb: ang_b0[0],
-                            self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2], self.kin.ang_xs: ang_s0[0],
-                            self.kin.ang_ys: ang_s0[1], self.kin.ang_zs: ang_s0[2], self.kin.r_sx: r_s0[0],
-                            self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
+    def substitute(self, parm,  m=None, l=None, I=None, b=None, ang_b0=None, r_s0=None, ang_s0=None, q0=None,):
+        if isinstance(m, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            for i in range(len(m)):
+                parm = msubs(parm, {self.m[i]: m[i]})
+        if isinstance(I, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            for i in range(len(I)):
+                parm = msubs(parm, {self.I_full[i]: I[i]})
+        if isinstance(l, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            for i in range(len(l)):
+                parm = msubs(parm, {self.kin.l[i]: l[i]})
+        if isinstance(q0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            for i in range(len(q0)):
+                parm = msubs(parm, {self.kin.qm[i]: q0[i]})
+        if isinstance(b, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2]})
+        if isinstance(ang_s0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            parm = msubs(parm, {self.kin.ang_xs: ang_s0[0], self.kin.ang_ys: ang_s0[1], self.kin.ang_zs: ang_s0[2]})
+        if isinstance(r_s0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            parm = msubs(parm, {self.kin.r_sx: r_s0[0], self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
+
+        # parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.ang_xb: ang_b0[0],
+        #                     self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2], self.kin.ang_xs: ang_s0[0],
+        #                     self.kin.ang_ys: ang_s0[1], self.kin.ang_zs: ang_s0[2], self.kin.r_sx: r_s0[0],
+        #                     self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
+
         return parm
 
     def calculate_spacecraft_ang_vel(self, m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric):
         L = self.ang_momentum_conservation()
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
-        L_num = self.substitute(L, m, l, I, b, ang_b0, r_s0, ang_s0, q0)
+        L_num = self.substitute(L, m=m, l=l, I=I, b=b, ang_b0=ang_b0, r_s0=r_s0, ang_s0=ang_s0, q0=q0)
         Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
         Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
         shp = qdm_numeric.shape[1]
@@ -421,7 +451,7 @@ class dynamics():
         omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
         shp = omega_s.shape[1]
         j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
-        j_vel_com_num = self.substitute(j_vel_com, m, l, I, b, ang_b0, r_s0, ang_s0, q0)
+        j_vel_com_num = self.substitute(j_vel_com, m=m, l=l, I=I, b=b, ang_b0=ang_b0, r_s0=r_s0, ang_s0=ang_s0, q0=q0)
         v_com = np.zeros((shp, 3, self.nDoF+1))
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
@@ -464,7 +494,7 @@ class dynamics():
         t1, t2, t3, t4, t5 = np.linspace(0, 1.9, 10), np.linspace(2, 13.9, 20), np.linspace(14, 15.9, 10), \
                              np.linspace(16, 27.9, 20), np.linspace(28, 40, 20)
         # t = np.hstack((t1, t2, t3, t4, t5))
-        t = np.linspace(0, 40, 80)
+        # t = np.linspace(0, 40, 80)
         def qdot(cc1):
             cc2, w = 2*cc1, 0.05*cc1
             y1, y2, y3, y4, y5 = np.linspace(0, cc1-w, 10), cc1*np.ones(20), np.linspace(cc1, 0, 10), \
@@ -472,22 +502,24 @@ class dynamics():
             return np.hstack((y1, y2, y3, y4, y5))
 
         q1_dot = np.zeros((len(t)))
-        q2_dot = qdot(-3*np.pi/(4*38))
-        q3_dot = qdot(-np.pi/(2*38))
+        q2_dot = qdot(-3*np.pi/(10*38))
+        q3_dot = qdot(-np.pi/(5*38))
         return q1_dot, q2_dot, q3_dot, t
 
     def get_positions(self):
         solver = Solver()
         m, I = self.mass, self.I_numeric
         l = self.kin.l_numeric[1:]  # cutting out satellite length l0
-        r_s0, ang_s0, ang_b0, q0, b = self.kin.r_s0, self.kin.ang_s0, self.kin.ang_b, self.kin.q0, self.kin.b0
+        ang_s0, ang_b0, q0, b0 = self.kin.ang_s0, self.kin.ang_b, self.kin.q0, self.kin.b0
 
         q1_dot, q2_dot, q3_dot, t = self.jnt_vel_prof_req()
-
         qdm_numeric = np.vstack((q1_dot, q2_dot, q3_dot))
 
-        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
-        v_com = self.calculate_spacecraft_lin_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
+        pv_com, _, _ = self.com_pos_vect()
+        r_s0 = self.substitute(pv_com[:, 0], m=m, l=l, I=I, b=b0, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
+        r_s0 = np.array(r_s0).astype(np.float64)
+        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b0, ang_b0, r_s0.reshape((3, 1)), ang_s0, q0, qdm_numeric)
+        v_com = self.calculate_spacecraft_lin_vel(m, l, I, b0, ang_b0, r_s0.reshape((3, 1)), ang_s0, q0, qdm_numeric)
         vs = v_com[:, :, 0]
         vs = np.transpose(vs)
         # v_com1 = v_com[:, :, 1]
@@ -505,8 +537,6 @@ class dynamics():
         #  q and ang_s directly from the com_pos_vect(). Ideally this should match with the numerical integration of the
         # velocities of qdm_numeric and omega_s. But at the moment it's not
 
-        # pv_com, _, _ = self.com_pos_vect()
-        # pvs_com_num = self.substitute(pv_com[:, 0], m, l, I, b0, ang_s0, ang_b, r_s0, q0)
         # qm = self.kin.qm
         # ang_sat = self.kin.q[3:6]
         # parm = pvs_com_num   # satellite com vector
@@ -544,7 +574,7 @@ class Solver(object):
                 dt = t[i] - t[i-1]
             else:
                 dt = t[i+1] - t[i]
-            integrand[:, i] = derivative[:, i] * dt + init_pos
+            integrand[:, i] = derivative[:, i] * dt + np.squeeze(init_pos)
             init_pos = integrand[:, i]
         return integrand
 
@@ -556,12 +586,12 @@ if __name__ == '__main__':
     dyn = dynamics(nDoF=nDoF, robot='3DoF')
     solver = Solver()
 
-    # T_joint, T_i_i1 = kin.fwd_kin_symbolic(kin.qm)
     m, I = dyn.mass, dyn.I_numeric
     l = kin.l_numeric[1:]  # cutting out satellite length l0
-    r_s0, ang_s0, ang_b, b0, q0 = kin.r_s0, kin.ang_s0, kin.ang_b, kin.b0, kin.q0
+    ang_b, b0 = kin.ang_b, kin.b0
 
     r_s0, q0 = np.array([1., 1.0, 0]), np.array([0., np.pi/4., -np.pi/6.])
+    r_s, ang_s, q, qdm_numeric, t = dyn.get_positions()
     # ang_s0, ang_b, b0 = np.array([0., np.pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
     #
     # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
