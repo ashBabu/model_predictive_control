@@ -70,7 +70,7 @@ class Simulation(object):
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
 
-    def call_plot(self, pos, size, color, rot_ang, q, pv_com, ax=None):
+    def call_plot(self, pos, size, color, rot_ang, q, pv_com=None, ax=None):
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
         if not ax:
             fig = plt.figure()
@@ -80,10 +80,11 @@ class Simulation(object):
             temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
             qi = q[:, i]
             plt.cla()
-            # ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
+            if isinstance(pv_com, (list, tuple, np.ndarray)):
+                ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
             for p, s, c in zip(temp, size, color):
                 self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
-            plt.pause(0.05)
+            plt.pause(0.3)
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
             # print('hi')
 
@@ -91,7 +92,7 @@ class Simulation(object):
         sizes = self.kin.size
         colors = ["salmon", "limegreen", "crimson", ]
         r_s, ang_s, q, q_dot, t, pv_com = self.dyn.get_positions()
-        self.call_plot(r_s, sizes, colors, ang_s, q, pv_com)  # Animation
+        self.call_plot(r_s, sizes, colors, ang_s, q,)  # Animation
 
         r_sx, r_sy, r_sz = r_s[0, :], r_s[1, :], r_s[2, :]
         ang_sx, ang_sy, ang_sz = ang_s[0, :], ang_s[1, :], ang_s[2, :]
