@@ -252,7 +252,7 @@ class dynamics():
         self.kin = kinematics()
 
         # numeric values
-        self.mass = Array([2000.0, 20.0, 50.0, 50.0])  # mass of satellite and each of the links respec
+        self.mass = Array([20.0, 20.0, 50.0, 50.0])  # mass of satellite and each of the links respec
         self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
         self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
         self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
@@ -380,7 +380,7 @@ class dynamics():
         shp = qdm_numeric.shape[1]
         omega_s = np.zeros((3, shp))
         for i in range(shp):
-            omega_s[:, i] = np.linalg.solve(Ls, (Lm @ qdm_numeric[:, i]))
+            omega_s[:, i] = -np.linalg.solve(Ls, (Lm @ qdm_numeric[:, i]))
         return omega_s
 
     def calculate_spacecraft_lin_vel(self,  m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric):
