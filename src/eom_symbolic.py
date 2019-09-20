@@ -213,7 +213,6 @@ class kinematics():
         for i in range(2, 2+self.nDoF - 1):  # not considering end-eff vel
             v = pv_origins[:, i] - pv_origins[:, i-1]
             joint_velocity[:, i] = joint_velocity[:, i - 1] + omega[:, i-1].cross(v)
-
         jk = 0
         com_vel[:, 0] = joint_velocity[:, 0]
         for i in range(1, joint_velocity.shape[1]-1):
@@ -298,25 +297,57 @@ class dynamics():
     def com_pos_vect(self):
         # rs, r1, r2 etc are pv from inertial to COM of spacecraft, link1, lin2, ...
         k11 = self.mass_frac()
-        # j_T_full, _, _, _ = self.kin.position_vectors()
         aa, bb = self.kin.ab_vectors()
         r0 = zeros(3, 1)
         pv_com = zeros(3, self.nDoF + 1)  # matrix of pos vec frm system COM to COM of spacecraft + each of the links
         for i in range(self.nDoF):
             r0 += k11[i] * (bb[:, i] + aa[:, i])
-            # r0 += k11[i] * (bb[:, i] + aa[:, i])
         pv_com[:, 0] = r0
         for i in range(1, self.nDoF + 1):
             pv_com[:, i] = pv_com[:, i - 1] + bb[:, i - 1] + aa[:, i - 1]  # # [j_rs, j_r1, j_r2, ...]
             # temp.applyfunc(simplify)
 
-        pv_eef = pv_com[:, -1] + bb[:, -1]  # pos vec of eef wrt inertial = last entry of pv_origin
-        pv_origin = zeros(3, self.nDoF + 2)  # includes eef origin
+        pv_eef = pv_com[:, -1] + bb[:, -1]  # pos vec of eef wrt inertial = last entry of pv_origin + bb
+
+        pv_origin = zeros(3, self.nDoF + 3)  # includes eef origin
         pv_origin[:, 0] = r0
         pv_origin[:, 1] = pv_origin[:, 0] + bb[:, 0]
-        for i in range(2, 1+pv_com.shape[1]):
-            pv_origin[:, i] = pv_origin[:, i-1] + aa[:, i-2] + bb[:, i-1]  # includes eef origin
+        pv_orig_kin, _, _ = self.kin.position_vectors()
+        h, ia, ib = 1, 0, 1
+        for i in range(2, pv_orig_kin.shape[1]):
+            v = pv_orig_kin[:, h+1] - pv_orig_kin[:, h]
+            if not v[0] + v[1] + v[2]:
+                pv_origin[:, i] = pv_origin[:, i - 1]
+            else:
+                pv_origin[:, i] = pv_origin[:, i-1] + aa[:, ia] + bb[:, ib]  # includes eef origin
+                ia += 1
+                ib += 1
+            h += 1
         return pv_com, pv_eef, pv_origin
+
+    def jacobian_satellite(self):
+        _, pv_eef, pv_origin = self.com_pos_vect()
+        r_e_0 = pv_eef - pv_origin[:, 0]
+        r_e0x = self.kin.skew_matrix(r_e_0)
+        I, Z = eye(3), zeros(3)
+        tp = I.col_join(Z)
+        tr = -r_e0x.col_join(I)
+        J_sat = tp.row_join(tr)
+        return J_sat
+
+    def geometric_jacobian_manip(self,):    # Method 2: for finding Jacobian
+        _, pv_eef, pv_origin = self.com_pos_vect()
+        j_T_full = self.kin.fwd_kin_symb_full()  # [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
+        J_manip = zeros(6, self.nDoF)  # initilizing jacobian
+
+
+        ##################################### pv_origins subtract, loop range wrong
+        for i in range(J_manip.shape[1]):
+            pos_vec = pv_eef - pv_origin[:, i+1]  # pv_origin[:, 0] is satellite COM
+            rot_axis = j_T_full[i+2][0:3, 2]
+            J_manip[0:3, i] = cross(rot_axis, pos_vec)
+            J_manip[3:6, i] = rot_axis
+        return J_manip
 
     def velocities_frm_momentum_conservation(self):
         t = Symbol('t')
@@ -543,8 +574,10 @@ if __name__ == '__main__':
 
     r_s0, q0 = np.array([1., 1.0, 0]), np.array([0., np.pi/4., -np.pi/6.])
     # r_s, ang_s, q, qdm_numeric, t, pv_com = dyn.get_positions()
-    T_joint, T_i_i1 = kin.fwd_kin_symb_manip(kin.qm)
-
+    # T_joint, T_i_i1 = kin.fwd_kin_symb_manip(kin.qm)
+    # a, b, c = kin.position_vectors()
+    J_sat = dyn.jacobian_satellite()
+    J_manip = dyn.geometric_jacobian_manip()
     # ang_s0, ang_b, b0 = np.array([0., np.pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
     #
     # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
