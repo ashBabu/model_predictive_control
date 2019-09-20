@@ -33,7 +33,7 @@ class kinematics():
         hh = 2.1
         self.size = [(hh, hh, hh)]  # satellite dimension
         x, y, z = 0.5*self.size[0][0], 0.5*self.size[0][0], 0
-        self.b0 = np.array([x, y, 0.])  # vector from spacecraft COM to robot base wrt spacecraft CS
+        self.b0 = np.array([x, y, 0.], dtype=float)  # vector from spacecraft COM to robot base wrt spacecraft CS
 
         self.r_sx, self.r_sy, self.r_sz, = dynamicsymbols('r_sx r_sy r_sz')  # r_s = satellite pos_vec wrt inertial
         self.ang_xs, self.ang_ys, self.ang_zs = dynamicsymbols("ang_xs ang_ys ang_zs ")
@@ -113,7 +113,7 @@ class kinematics():
                     [0, 0, 0, 1]])
         return T
 
-    def fwd_kin_symbolic(self, q):   # forward kinematics of the manipulator alone
+    def fwd_kin_symb_manip(self, q):   # forward kinematics of the manipulator alone
         T = self.robot_DH_matrix()
         T_joint, T_i_i1 = [], []  # T_i_i1 is the 4x4 transformation matrix relating i+1 frame to i
         t = eye(4)
@@ -129,20 +129,31 @@ class kinematics():
         T_joint.append(T_ee)
         return T_joint, T_i_i1
 
+    def fwd_kin_symb_spacecraft(self):
+        # j_T_s = transformation from spacecraft COM to inertial
+        # j_T_b = transformation from robot_base to inertial
+        j_T_s = self.euler_transformations([self.ang_xs, self.ang_ys, self.ang_zs, self.r_sx, self.r_sy, self.r_sz])
+        s_T_b = self.euler_transformations(
+            [self.ang_xb, self.ang_yb, self.ang_zb, self.b0x, self.b0y, self.b0z])  # a constant 4 x 4 matrix
+        j_T_b = j_T_s @ s_T_b  # transformation from inertial to robot base
+        return j_T_s, j_T_b
+
+    def fwd_kin_symb_full(self):
+        T_joint, _ = self.fwd_kin_symb_manip(self.qm)
+        j_T_s, j_T_b = self.fwd_kin_symb_spacecraft()
+        j_T_full = []  # j_T_full is n x 4 x 4 transf. matrices # j_T_full = [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
+        # containing satellite, robot base and each of the joint CS
+        j_T_full.extend([j_T_s, j_T_b])
+        for i in range(2, 3+self.nDoF):
+            j_T_full.append(j_T_b @ T_joint[i - 2])
+        return j_T_full
+
     def position_vectors(self,): # position vectors of COM of each link wrt inertial CS, {j}
         # {s}, {ji} are respectively the CS of spacecraft at its COM and joint CS of the manipulator
-        # q, ang_xs, ang_ys, ang_zs, ang_xb, ang_yb, ang_zb, r0, b0 = args
-        j_T_s = self.euler_transformations([self.ang_xs, self.ang_ys, self.ang_zs, self.r_sx, self.r_sy, self.r_sz])
-        s_T_j0 = self.euler_transformations([self.ang_xb, self.ang_yb, self.ang_zb, self.b0x, self.b0y, self.b0z])  # a constant 4 x 4 matrix
-        j_T_j0 = j_T_s @ s_T_j0  # transformation from inertial to robot base
-        T_joint, T_i_i1 = self.fwd_kin_symbolic(self.qm)  #
-        j_T_full = []  # j_T_full is n x 4 x 4 transf. matrices # j_T_full = [0_T_s, 0_T_j0, 0_T_j1, 0_T_j2,..., 0_T_ee]
-        # containing satellite, robot base and each of the joint CS
-        j_T_full.extend([j_T_s, j_T_j0])
+        j_T_full = self.fwd_kin_symb_full()
         pv_origins = zeros(3, self.nDoF+3)  # position vector of the origins of all coordinate system wrt inertial {j}
         pv_com = zeros(3, self.nDoF+1)  # position vector of the COM of spacecraft + each of the links wrt inertial {j}
-        for i in range(2, 3+self.nDoF):
-            j_T_full.append(j_T_j0 @ T_joint[i - 2])
+
         for i in range(self.nDoF+3):  # includes end-eff origin
             pv_origins[:, i] = j_T_full[i][0:3, 3]  # [0_r_s, 0_r_b, 0_r_j1, ...0_r_eef]
         kk = 1
@@ -156,10 +167,10 @@ class kinematics():
                 # vector 'a' in Umeneti and Yoshida
                 kk += 1
                 ll += 1
-        return j_T_full, pv_origins, pv_com, j_com_vec
+        return pv_origins, pv_com, j_com_vec
 
     def rotations_from_inertial(self):
-        j_T_full, _, _, _ = self.position_vectors()
+        j_T_full = self.fwd_kin_symb_full()
         rot_full = list()
         for i in range(len(j_T_full)):
             rot_full.append(j_T_full[i][0:3, 0:3])  # rotation matrix of spacecraft COM + each joint CS wrt inertial
@@ -168,7 +179,8 @@ class kinematics():
         return rot_full
 
     def ab_vectors(self, com_vec=None):
-        j_T_full, _, _, j_com_vec = self.position_vectors()
+        j_T_full = self.fwd_kin_symb_full()
+        _, _, j_com_vec = self.position_vectors()
         if not com_vec:
             # Here 'a' = vector from joint i to COM of link i wrt inertial
             # 'b' = vector from COM of link i to joint i+1 wrt inertial
@@ -180,7 +192,8 @@ class kinematics():
         return a, b,
 
     def velocities(self):
-        j_T_full, pv_origins, pv_com, j_com_vec = self.position_vectors()
+        j_T_full = self.fwd_kin_symb_full()
+        pv_origins, pv_com, j_com_vec = self.position_vectors()
         # j_T_full = [0_T_s, 0_T_j0, 0_T_j1, 0_T_j2,..., 0_T_ee]
         # j_com_vec =  vector from joint i to COM of link i wrt in inertial. vector 'a' in Umeneti and Yoshida
         omega = zeros(3, self.nDoF+2)
@@ -320,7 +333,7 @@ class dynamics():
         return L
 
     def momentOfInertia_transform(self):
-        j_T_full, pv_origins, pv_com, j_com_vec = self.kin.position_vectors()
+        _, pv_com, _ = self.kin.position_vectors()
         I = self.I
         rot_full = self.kin.rotations_from_inertial()
         rot_full.remove(rot_full[1])  # rot_full = [0_R_s, 0_R_j1, 0_R_j2, ...].
@@ -362,12 +375,8 @@ class dynamics():
             parm = msubs(parm, {self.kin.ang_xs: ang_s0[0], self.kin.ang_ys: ang_s0[1], self.kin.ang_zs: ang_s0[2]})
         if isinstance(r_s0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             parm = msubs(parm, {self.kin.r_sx: r_s0[0], self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
-
-        # parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2], self.kin.ang_xb: ang_b0[0],
-        #                     self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2], self.kin.ang_xs: ang_s0[0],
-        #                     self.kin.ang_ys: ang_s0[1], self.kin.ang_zs: ang_s0[2], self.kin.r_sx: r_s0[0],
-        #                     self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
-
+        # if isinstance(ang_b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        #     parm = msubs(ang_b0, {self.kin.ang_xb: ang_b0[0], self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2]})
         return parm
 
     def calculate_spacecraft_ang_vel(self, m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric):
@@ -533,7 +542,9 @@ if __name__ == '__main__':
     ang_b, b0 = kin.ang_b, kin.b0
 
     r_s0, q0 = np.array([1., 1.0, 0]), np.array([0., np.pi/4., -np.pi/6.])
-    r_s, ang_s, q, qdm_numeric, t, pv_com = dyn.get_positions()
+    # r_s, ang_s, q, qdm_numeric, t, pv_com = dyn.get_positions()
+    T_joint, T_i_i1 = kin.fwd_kin_symb_manip(kin.qm)
+
     # ang_s0, ang_b, b0 = np.array([0., np.pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
     #
     # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
