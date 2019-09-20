@@ -21,6 +21,7 @@ class InverseKinematics():
         pv_com, pv_eef, _ = self.dyn.com_pos_vect()
         self.pv_com_num = self.dyn.substitute(pv_com, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
         self.pv_eef_num = self.dyn.substitute(pv_eef, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
+        self.pv_eef_diff = diff(self.pv_eef_num)
 
     def discretize(self, start, goal, step_size=0.02):
         w = goal - start
@@ -97,7 +98,8 @@ class InverseKinematics():
         return temp.dot(temp)
 
     def inv_kin(self, X0, eef_des_pos):
-        results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='BFGS', options={'maxiter': 150, 'disp': True})
+        results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='BFGS',
+                              options={'maxiter': 150, 'disp': True})
         return results.x
 
     def call_optimize(self, target, q):
@@ -121,7 +123,7 @@ if __name__ == '__main__':
     r_s0 = IK.spacecraft_com_num(ang_s0, q0)
     # IK.generalized_jacobian
     # points = IK.path(target_location)
-    # IK.plot(target_location, q0)
+    # IK.plot(target_location, Array([[0.], [0], [0.]]))
     X = IK.call_optimize(target_location, q0)
     z = np.zeros(X.shape[1])
     ang_s, q = np.vstack((z, z, X[0, :])), X[1:, :]
