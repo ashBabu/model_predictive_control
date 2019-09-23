@@ -339,13 +339,17 @@ class dynamics():
         _, pv_eef, pv_origin = self.com_pos_vect()
         j_T_full = self.kin.fwd_kin_symb_full()  # [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
         J_manip = zeros(6, self.nDoF)  # initilizing jacobian
-
-
-        ##################################### pv_origins subtract, loop range wrong
-        for i in range(J_manip.shape[1]):
+        h = list()
+        for i in range(1, pv_origin.shape[1]-1):
+            v = pv_origin[:, i+1] - pv_origin[:, i]
+            if not v[0] + v[1] + v[2]:
+                h.append(i+1)
+        [pv_origin.col_del(i) for i in h]
+        for i in range(self.nDoF):
             pos_vec = pv_eef - pv_origin[:, i+1]  # pv_origin[:, 0] is satellite COM
             rot_axis = j_T_full[i+2][0:3, 2]
-            J_manip[0:3, i] = cross(rot_axis, pos_vec)
+            rot_axis_x = self.kin.skew_matrix(rot_axis)
+            J_manip[0:3, i] = rot_axis_x @ pos_vec
             J_manip[3:6, i] = rot_axis
         return J_manip
 
@@ -410,21 +414,21 @@ class dynamics():
         #     parm = msubs(ang_b0, {self.kin.ang_xb: ang_b0[0], self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2]})
         return parm
 
-    def calculate_spacecraft_ang_vel(self, m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric):
+    def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b=None, ang_b0=None, r_s0=None, ang_s0=None, q0=None, qdm=None):
         L = self.ang_momentum_conservation()
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
         L_num = self.substitute(L, m=m, l=l, I=I, b=b, ang_b0=ang_b0, r_s0=r_s0, ang_s0=ang_s0, q0=q0)
         Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
         Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
-        shp = qdm_numeric.shape[1]
+        shp = qdm.shape[1]
         omega_s = np.zeros((3, shp))
         for i in range(shp):
-            omega_s[:, i] = -np.linalg.solve(Ls, (Lm @ qdm_numeric[:, i]))
+            omega_s[:, i] = -np.linalg.solve(Ls, (Lm @ qdm[:, i]))
         return omega_s
 
-    def calculate_spacecraft_lin_vel(self,  m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric):
-        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
+    def calculate_spacecraft_lin_vel(self,  m=None, l=None, I=None, b=None, ang_b0=None, r_s0=None, ang_s0=None, q0=None, qdm=None):
+        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm)
         shp = omega_s.shape[1]
         j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
         j_vel_com_num = self.substitute(j_vel_com, m=m, l=l, I=I, b=b, ang_b0=ang_b0, r_s0=r_s0, ang_s0=ang_s0, q0=q0)
@@ -436,7 +440,7 @@ class dynamics():
             for i in range(len(qd_s)):
                 j_vel_com_num = msubs(j_vel_com_num, {qd_s[i]: omega_s[i, j]})
             for k in range(len(qd_m)):
-                j_vel_com_num = msubs(j_vel_com_num, {qd_m[k]: qdm_numeric[k, j]})
+                j_vel_com_num = msubs(j_vel_com_num, {qd_m[k]: qdm[k, j]})
             v_com[j, :, :] = j_vel_com_num
             j_vel_com_num = vcm
         return v_com
@@ -576,9 +580,10 @@ if __name__ == '__main__':
     # r_s, ang_s, q, qdm_numeric, t, pv_com = dyn.get_positions()
     # T_joint, T_i_i1 = kin.fwd_kin_symb_manip(kin.qm)
     # a, b, c = kin.position_vectors()
-    J_sat = dyn.jacobian_satellite()
-    J_manip = dyn.geometric_jacobian_manip()
-    # ang_s0, ang_b, b0 = np.array([0., np.pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
+    # J_sat = dyn.jacobian_satellite()
+    # J_manip = dyn.geometric_jacobian_manip()
+    L = dyn.ang_momentum_conservation()
+    # ang_s0, ang_b, b0 = np.array([0., np.)pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
     #
     # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
     # jac = dyn.jacobian(m, l, I, b0, ang_s0, ang_b, r_s0, q0)
