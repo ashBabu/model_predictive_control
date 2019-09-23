@@ -356,19 +356,21 @@ class dynamics():
     def velocities_frm_momentum_conservation(self):
         t = Symbol('t')
         j_omega, _, _ = self.kin.velocities()
-        pv_com, _, _ = self.com_pos_vect()
+        pv_com, pv_eef, _ = self.com_pos_vect()
         j_vel_com = diff(pv_com, t)
-        return ImmutableMatrix(j_omega), j_vel_com
+        j_vel_eef = diff(pv_eef, t)
+        return ImmutableMatrix(j_omega), j_vel_com, j_vel_eef
 
     def linear_momentum_conservation(self):
-        j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
+        j_omega, j_vel_com, _ = self.velocities_frm_momentum_conservation()
         L = zeros(3, 1)
         for i in range(self.nDoF+1):
             L += self.m[i] * j_vel_com[:, i]
         return L
 
     def momentOfInertia_transform(self):
-        _, pv_com, _ = self.kin.position_vectors()
+        # _, pv_com, _ = self.kin.position_vectors()
+        pv_com, _, _ = self.com_pos_vect()
         I = self.I
         rot_full = self.kin.rotations_from_inertial()
         rot_full.remove(rot_full[1])  # rot_full = [0_R_s, 0_R_j1, 0_R_j2, ...].
@@ -382,7 +384,7 @@ class dynamics():
 
     def ang_momentum_conservation(self):
         I = self.momentOfInertia_transform()
-        j_omega, _ = self.velocities_frm_momentum_conservation()
+        j_omega, _, _ = self.velocities_frm_momentum_conservation()
         j_omega = j_omega.col_del(1)  # [0_w_s, 0_w_1, 0_w_2...] robot base and satellite has same angular velocity
         L = zeros(3, 1)
         for i in range(self.nDoF + 1):
@@ -414,11 +416,11 @@ class dynamics():
         #     parm = msubs(ang_b0, {self.kin.ang_xb: ang_b0[0], self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2]})
         return parm
 
-    def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b=None, ang_b0=None, r_s0=None, ang_s0=None, q0=None, qdm=None):
+    def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, qdm=None):
         L = self.ang_momentum_conservation()
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
-        L_num = self.substitute(L, m=m, l=l, I=I, b=b, ang_b0=ang_b0, r_s0=r_s0, ang_s0=ang_s0, q0=q0)
+        L_num = self.substitute(L, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
         Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
         Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
         shp = qdm.shape[1]
@@ -427,11 +429,11 @@ class dynamics():
             omega_s[:, i] = -np.linalg.solve(Ls, (Lm @ qdm[:, i]))
         return omega_s
 
-    def calculate_spacecraft_lin_vel(self,  m=None, l=None, I=None, b=None, ang_b0=None, r_s0=None, ang_s0=None, q0=None, qdm=None):
-        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b, ang_b0, r_s0, ang_s0, q0, qdm)
+    def calculate_spacecraft_lin_vel(self,  m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, qdm=None):
+        omega_s = self.calculate_spacecraft_ang_vel(m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0, qdm=qdm)
         shp = omega_s.shape[1]
         j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
-        j_vel_com_num = self.substitute(j_vel_com, m=m, l=l, I=I, b=b, ang_b0=ang_b0, r_s0=r_s0, ang_s0=ang_s0, q0=q0)
+        j_vel_com_num = self.substitute(j_vel_com, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
         v_com = np.zeros((shp, 3, self.nDoF+1))
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
@@ -504,7 +506,7 @@ class dynamics():
         pv_com_num0 = self.substitute(pv_com, m=m, l=l, I=I, b=b0, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
         pv_com_num0 = np.array(pv_com_num0).astype(np.float64)
         r_s0 = pv_com_num0[:, 0].reshape((3, 1))
-        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b0, ang_b0, r_s0, ang_s0, q0, qdm_numeric)
+        omega_s = self.calculate_spacecraft_ang_vel(m, l, I, b0, ang_b0, ang_s0, q0, qdm_numeric)
         ang_s0 = np.array(ang_s0).astype(np.float64).reshape((3, 1))
 
         q = solver.num_integration(qdm_numeric, q0, t)
@@ -583,6 +585,7 @@ if __name__ == '__main__':
     # J_sat = dyn.jacobian_satellite()
     # J_manip = dyn.geometric_jacobian_manip()
     L = dyn.ang_momentum_conservation()
+    omega, vel_com, vel_eef = dyn.velocities_frm_momentum_conservation()
     # ang_s0, ang_b, b0 = np.array([0., np.)pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
     #
     # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
@@ -591,7 +594,6 @@ if __name__ == '__main__':
     # a, b = kin.ab_vectors()
     # pv_com, pv_eef, pv_origin = dyn.com_pos_vect()
     # omega, cm_vel, joint_velocity = kin.velocities()
-    omega, vel_com = dyn.velocities_frm_momentum_conservation()
     # I = dyn.momentOfInertia_transform()
     # r_s, ang_s, q, qdm_numeric, t = dyn.get_positions()
     # kin_energy = dyn.kinetic_energy()
