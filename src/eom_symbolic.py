@@ -16,7 +16,7 @@ class kinematics():
         # qdm = manipulator joint velocities, l = link lengths, r = COM vectors from joints
 
         if robot == '3DoF':  # as given in umeneti and yoshida: resolved motion rate control of space manipulators
-            self.l_numeric = Array([3.5, 0.25, 2.5, 2.5])
+            self.l_numeric = np.array([3.5, 0.25, 2.5, 2.5])
             self.ang_s0 = Array([0., 0., 0.])
             self.r_s0 = Array([0.01, 0.01, 0.0])
             self.q0 = Array([pi / 3 * 0, 5*pi / 4, pi/2])  # as given in Umaneti and Yoshida: Resolved..
@@ -33,7 +33,7 @@ class kinematics():
         hh = 2.1
         self.size = [(hh, hh, hh)]  # satellite dimension
         x, y, z = 0.5*self.size[0][0], 0.5*self.size[0][0], 0
-        self.b0 = np.array([x, y, 0.], dtype=float)  # vector from spacecraft COM to robot base wrt spacecraft CS
+        self.b0 = np.array([x, y, 0.])  # vector from spacecraft COM to robot base wrt spacecraft CS
 
         self.r_sx, self.r_sy, self.r_sz, = dynamicsymbols('r_sx r_sy r_sz')  # r_s = satellite pos_vec wrt inertial
         self.ang_xs, self.ang_ys, self.ang_zs = dynamicsymbols("ang_xs ang_ys ang_zs ")
@@ -50,7 +50,7 @@ class kinematics():
         self.q_i, self.alpha_i, self.a_i, self.d_i = symbols("q_i alpha_i a_i d_i")
         an = np.arctan2(self.b0[1], self.b0[0])
         self.ang_xb, self.ang_yb, self.ang_zb, self.b0x, self.b0y, self.b0z = 0., 0., an-pi/2, x, y, z
-        self.ang_b = np.array([self.ang_xb, self.ang_yb, self.ang_zb])
+        self.ang_b = np.array([self.ang_xb, self.ang_yb, self.ang_zb], dtype=float)
         # self.ang_xb, self.ang_yb, self.ang_zb, self.b0x, self.b0y, self.b0z = symbols(
         #     "ang_xb ang_yb ang_zb b0x b0y b0z")
         # self.ang_x, self.ang_y, self.ang_z, self.r0x, self.r0y, self.r0z = symbols("ang_x ang_y ang_z r0x, r0y, r0z")
@@ -264,7 +264,7 @@ class dynamics():
         self.kin = kinematics()
 
         # numeric values
-        self.mass = Array([20.0, 20.0, 50.0, 50.0])  # mass of satellite and each of the links respec
+        self.mass = np.array([20.0, 20.0, 50.0, 50.0], dtype=float)  # mass of satellite and each of the links respec
         self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
         self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
         self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
@@ -432,7 +432,7 @@ class dynamics():
     def calculate_spacecraft_lin_vel(self,  m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, qdm=None):
         omega_s = self.calculate_spacecraft_ang_vel(m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0, qdm=qdm)
         shp = omega_s.shape[1]
-        j_omega, j_vel_com = self.velocities_frm_momentum_conservation()
+        j_omega, j_vel_com, j_vel_eef = self.velocities_frm_momentum_conservation()
         j_vel_com_num = self.substitute(j_vel_com, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
         v_com = np.zeros((shp, 3, self.nDoF+1))
         qd = self.kin.qd[3:]
