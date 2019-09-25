@@ -30,12 +30,6 @@ class InverseKinematics():
         self.qd = self.kin.qd[3:]
         self.qd_s, self.qd_m = self.qd[0:3], self.qd[3:]
 
-        j_T_full = self.kin.fwd_kin_symb_full()
-        j_T_eef = j_T_full[-1][0:3][0:3]  # rotation matrix of the eef CS wrt inertial
-        # self.R_eef_num = self.dyn.substitute(j_T_eef, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
-
-        # self.J_star = self.generalized_jacobian_symb()
-
     def discretize(self, start, goal, step_size=0.02):
         w = goal - start
         step = step_size * w / np.linalg.norm(w)
@@ -43,6 +37,26 @@ class InverseKinematics():
         discretized = np.outer(np.arange(1, n), step) + start
         return discretized
 
+    def spacecraft_com_num(self, ang_s, q):
+        r_s0 = self.dyn.substitute(self.pv_com_num[:, 0], ang_s0=ang_s, q0=q)
+        r_s0 = np.array(r_s0).astype(np.float64)
+        r_s0 = r_s0.reshape((3, 1))
+        return r_s0
+
+    def manip_eef_pos_num(self, ang_s, q):
+        eef_pos = self.dyn.substitute(self.pv_eef_num, ang_s0=ang_s, q0=q)
+        eef_pos = np.array(eef_pos).astype(np.float64)
+        return np.squeeze(eef_pos)
+
+    def path(self, eef_des_pos, q0):  # q0 is current joint angles which is used to calculate current end_eff position
+        pv_eef_num = self.manip_eef_pos_num(self.ang_s0, q0)
+        init_pos = np.squeeze(pv_eef_num)
+        points = self.discretize(init_pos, eef_des_pos, step_size=0.15)  # step_size is inversely proportional to vel
+        points = np.insert(points, 0, init_pos, axis=0)
+        points = np.insert(points, len(points), eef_des_pos, axis=0)
+        return points
+
+    # Method 1: works but needs refinement
     def jacobians(self, ang_s, q):
         omega_eef_num = self.dyn.substitute(self.omega_eef, ang_s0=ang_s, q0=q)
         Jw_s, Jw_m = omega_eef_num.jacobian(self.qd_s), omega_eef_num.jacobian(self.qd_m)  # Jv_s and Jv_m are both functions of ang_s, q_i
@@ -61,67 +75,42 @@ class InverseKinematics():
         a1 = np.linalg.solve(Ls, Lm)
         Jv = Jv_m - Jv_s @ a1
         Jw = Jw_m - Jw_s @ a1
-        return Jv, Jw
+        return np.vstack((Jv, Jw)), Ls, Lm
 
-    def jac_pseudo_inv(self, X, path):
-        lmda = 0.002
+    def dir(self, X, point):
+        ang_s, q = X[0:3], X[3:]
+        r_eef_current = self.manip_eef_pos_num(ang_s, q)
+        dx = point - r_eef_current
+        dx = np.hstack((dx, 0., 0., 0.))
+        J, Ls, Lm = self.generalized_jacobian(ang_s, q)
+        dq = np.linalg.pinv(J) @ dx
+        dphi = -np.linalg.solve(Ls, Lm) @ dq
+        return dq, dphi
+
+    def call_dir(self, target, q0, ang_s0):
+        q0 = np.squeeze(np.array(q0).astype(np.float64))
+        ang_s0 = np.squeeze(np.array(ang_s0).astype(np.float64))
+        points = self.path(target, q0)
+        sh = points.shape[0]
+        X0 = np.hstack((ang_s0, q0))
+        q, ang_s = np.zeros((3, sh+1)), np.zeros((3, sh+1))
+        q[:, 0], ang_s[:, 0] = q0, ang_s0
+        for i in range(1, sh+1):
+            dq, dphi = self.dir(X0, points[i-1, :])
+            q[:, i] = q[:, i-1] + dq
+            ang_s[:, i] = ang_s[:, i-1] + dphi
+            X0 = np.hstack((ang_s[:, i], q[:, i]))
+        return ang_s, q
+
+    # Method 2: Works but needs refinement
+    def constraints(self,  X):
         ang_s, q = np.array([0., 0., X[0]]), X[1:]
-        pv_eef_num = np.squeeze(self.manip_eef_pos_num(ang_s, q, ))
-        dx = path - pv_eef_num
-        J_star_num = self.generalized_jacobian(ang_s, q)
-        J_star_num = np.array(J_star_num).astype(np.float64)
-        a1 = J_star_num.transpose() @ J_star_num
-        a2 = a1 + lmda**2 * np.eye(J_star_num.shape[0])
-        a3 = np.linalg.solve(a2, J_star_num)
-        dX = a3 @ dx
-        return dX
-
-    def analytic_inv_kin(self, target, q):
-        points = self.path(target, q)  # q = initial joint values to compute the position of end_eff
-        pr, pc = points.shape
-        X0 = np.array([0.05, *q], dtype=float)
-        # X0 = np.array([0.05, 0.07, 0.0, 0.0, 0.12, 0.2])
-        X = np.zeros((X0.shape[0], pr))
-        for i in range(pr):
-            dX = self.jac_pseudo_inv(X0, points[i, :])
-            X[:, i] = X0 + dX
-            X0 = X[:, i]
-        return X
-
-    def spacecraft_com_num(self, ang_s, q):
-        r_s0 = self.dyn.substitute(self.pv_com_num[:, 0], ang_s0=ang_s, q0=q)
-        r_s0 = np.array(r_s0).astype(np.float64)
-        r_s0 = r_s0.reshape((3, 1))
-        return r_s0
-
-    def manip_eef_pos_num(self, ang_s, q):
-        eef_pos = self.dyn.substitute(self.pv_eef_num, ang_s0=ang_s, q0=q)
-        eef_pos = np.array(eef_pos).astype(np.float64)
-        return eef_pos
-
-    def manip_eef_rotmat_num(self, ang_s, q):
-        eef_rotmat = self.dyn.substitute(self.R_eef_num, ang_s0=ang_s, q0=q)
-        eef_rotmat = np.array(eef_rotmat).astype(np.float64)
-        return eef_rotmat
-
-    def path(self, eef_des_pos, q0):  # q0 is current joint angles which is used to calculate current end_eff position
-        pv_eef_num = self.manip_eef_pos_num(self.ang_s0, q0)
-        init_pos = np.squeeze(pv_eef_num)
-        points = self.discretize(init_pos, eef_des_pos, step_size=0.45)  # step_size is inversely proportional to vel
-        points = np.insert(points, 0, init_pos, axis=0)
-        points = np.insert(points, len(points), eef_des_pos, axis=0)
-        return points
-
-    def plot(self, target, q):
-        size = self.kin.size
-        pos = self.spacecraft_com_num(self.ang_s0, q)
-        rot_ang = self.ang_s0.reshape(3, 1)
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        self.sat_manip_sim.call_plot(pos, size, 'green', rot_ang, q, ax=ax)
-        ax.scatter(target[0], target[1], target[2], lw=5)
-        points = self.path(target, np.squeeze(q))
-        ax.scatter(points[:, 0], points[:, 1], points[:, 2], 'r-', lw=4)
+        L = self.dyn.substitute(self.L_num, ang_s0=ang_s, q0=q)
+        Ls, Lm = L.jacobian(self.qd_s), L.jacobian(self.qd_m)
+        Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
+        g = Ls @ ang_s + Lm @ q
+        f = g[0]**2 + g[1]**2 + g[2]**2
+        return f
 
     def inv_kin_optim_func(self, X, r_eef_des,):
         ang_s, q = np.array([0., 0., X[0]]), X[1:]
@@ -131,8 +120,17 @@ class InverseKinematics():
         return temp.dot(temp)
 
     def inv_kin(self, X0, eef_des_pos):
-        results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='BFGS',
-                              options={'maxiter': 150, 'disp': True})
+        # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='BFGS',
+        #                        options={'maxiter': 150, 'disp': True})
+        bnds = ((-np.pi, np.pi), (0, None), (-np.pi/2, np.pi/2), (-np.pi/2, np.pi/2))
+        bnds1 = ((None, None), (None, None), (None, None), (None, None))
+        results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='SLSQP', bounds=bnds1,
+                               options={'maxiter': 150, 'disp': True})
+        # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='SLSQP',
+        #                        constraints=({'type': 'eq', 'fun': self.constraints}), options={'maxiter': 150, 'disp': True})
+        # results = opt.fmin_slsqp(func=self.inv_kin_optim_func,
+        #                           x0=X0, eqcons=[self.constraints[0],self.constraints[1], self.constraints[2]],
+        #                           args=eef_des_pos, iprint=0)
         return results.x
 
     def call_optimize(self, target, q):
@@ -173,38 +171,65 @@ if __name__ == '__main__':
     q0 = Array([[0.], [np.pi / 2], [0.]])
     ang_s0 = IK.kin.ang_s0
     r_s0 = IK.spacecraft_com_num(ang_s0, q0)
-    # IK.plot(target_loc, Array([[0.], [0], [0.]]))
-    # XX = IK.analytic_inv_kin(target_loc, q0)
-    X = IK.call_optimize(target_loc, q0)
-    z = np.zeros(X.shape[1])
-    ang_s, q = np.vstack((z, z, X[0, :])), X[1:, :]
-    # ang_s, q = X[0:3, :], X[3:, :]
-    # plt.figure()
-    # plt.plot(X[0, :], label='satellite_z_rotation')
-    # # plt.plot(X[1, :], label='satellite_y_rotation')
-    # # plt.plot(X[2, :], label='satellite_z_rotation')
-    # plt.legend()
-    #
-    # plt.figure()
-    # plt.plot(X[1, :], label='q1')
-    # plt.plot(X[2, :], label='q2')
-    # plt.plot(X[3, :], label='q3')
-    # plt.legend()
 
-    r_s = np.zeros((3, ang_s.shape[1]))
-    for i in range(ang_s.shape[1]):
-        r_s[:, i] = np.squeeze(IK.spacecraft_com_num(ang_s[:, i], q[:, i]))
+    f1 = int(input('Enter 1: for optimized result 2: analytical'))
+    if f1 == 1:
+        X = IK.call_optimize(target_loc, q0)  # optimization method
+        z = np.zeros(X.shape[1])
+        ang_s, q = np.vstack((z, z, X[0, :])), X[1:, :]
+        A, Q = ang_s, q
+    else:
+        ang_s1, q1 = IK.call_dir(target_loc, q0, ang_s0)  # direct method
+        A, Q = ang_s1, q1
 
-    q = np.c_[q0, q]
+    r_s = np.zeros((3, A.shape[1]))
+    for i in range(A.shape[1]):
+        r_s[:, i] = np.squeeze(IK.spacecraft_com_num(A[:, i], Q[:, i]))
+
+    q = np.c_[q0, Q]
     r_s = np.c_[r_s0, r_s]
-    ang_s = np.c_[ang_s0, ang_s]
+    ang_s = np.c_[ang_s0, A]
 
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
-    points = IK.path(target_loc, np.squeeze(q0))
+    if f1 == 1:
+        # ang_s, q = X[0:3, :], X[3:, :]
 
-    IK.animation(r_s, IK.kin.size, 'green', ang_s, q, points, ax=ax)
+        plt.figure()
+        plt.plot(A[0, :], label='satellite_x_rotation')
+        plt.plot(A[1, :], label='satellite_y_rotation')
+        plt.plot(A[2, :], label='satellite_z_rotation')
+        plt.legend()
+
+        plt.figure()
+        plt.plot(Q[0, :], label='q1')
+        plt.plot(Q[1, :], label='q2')
+        plt.plot(Q[2, :], label='q3')
+        plt.legend()
+
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
+        points = IK.path(target_loc, np.squeeze(q0))
+
+        IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax)
+    else:
+        plt.figure()
+        plt.plot(A[0, :], label='satellite_x_rotation')
+        plt.plot(A[1, :], label='satellite_y_rotation')
+        plt.plot(A[2, :], label='satellite_z_rotation')
+        plt.legend()
+
+        plt.figure()
+        plt.plot(Q[0, :], label='q1')
+        plt.plot(Q[1, :], label='q2')
+        plt.plot(Q[2, :], label='q3')
+        plt.legend()
+
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
+        points = IK.path(target_loc, np.squeeze(q0))
+
+        IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax)
     print('hi')
 
     plt.show()
