@@ -16,7 +16,7 @@ class kinematics():
         # qdm = manipulator joint velocities, l = link lengths, r = COM vectors from joints
 
         if robot == '3DoF':  # as given in umeneti and yoshida: resolved motion rate control of space manipulators
-            self.l_numeric = np.array([3.5, 0.25, 2.5, 2.5])
+            self.l_num = np.array([3.5, 0.25, 2.5, 2.5])
             self.ang_s0 = Array([0., 0., 0.])
             self.r_s0 = Array([0.01, 0.01, 0.0])
             self.q0 = Array([pi / 3 * 0, 5*pi / 4, pi/2])  # as given in Umaneti and Yoshida: Resolved..
@@ -269,7 +269,7 @@ class dynamics():
         self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
         self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
         self.I3 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
-        self.I_numeric = np.array([1400.0, 1400.0, 2040.0, 0.10, 0.25, 0.25, 0.10, 0.26, 0.26, 0.10, 0.26, 0.26])
+        self.I_num = np.array([1400.0, 1400.0, 2040.0, 0.10, 0.25, 0.25, 0.10, 0.26, 0.26, 0.10, 0.26, 0.26])
 
         # self.M, self.C, self.G = self.get_dyn_para(self.kin.q, self.kin.qd)
 
@@ -495,8 +495,8 @@ class dynamics():
 
     def get_positions(self):
         solver = Solver()
-        m, I = self.mass, self.I_numeric
-        l = self.kin.l_numeric[1:]  # cutting out satellite length l0
+        m, I = self.mass, self.I_num
+        l = self.kin.l_num[1:]  # cutting out satellite length l0
         ang_s0, ang_b0, q0, b0 = self.kin.ang_s0, self.kin.ang_b, self.kin.q0, self.kin.b0
 
         q1_dot, q2_dot, q3_dot, t = self.jnt_vel_prof_req()
@@ -574,8 +574,8 @@ if __name__ == '__main__':
     dyn = dynamics(nDoF=nDoF, robot='3DoF')
     solver = Solver()
 
-    m, I = dyn.mass, dyn.I_numeric
-    l = kin.l_numeric[1:]  # cutting out satellite length l0
+    m, I = dyn.mass, dyn.I_num
+    l = kin.l_num[1:]  # cutting out satellite length l0
     ang_b, b0 = kin.ang_b, kin.b0
 
     r_s0, q0 = np.array([1., 1.0, 0]), np.array([0., np.pi/4., -np.pi/6.])
