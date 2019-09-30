@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.optimize as opt
+import time
 import matplotlib.pyplot as plt
 from eom_symbolic import dynamics, kinematics
 from sympy import *
@@ -29,6 +30,7 @@ class InverseKinematics():
         self.vel_eef = self.dyn.substitute(j_vel_eef, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
         self.qd = self.kin.qd[3:]
         self.qd_s, self.qd_m = self.qd[0:3], self.qd[3:]
+        self.lmda1, self.lmda2 = 2, 0.5   # optimization weights
 
     def discretize(self, start, goal, step_size=0.02):
         w = goal - start
@@ -51,7 +53,7 @@ class InverseKinematics():
     def path(self, eef_des_pos, q0):  # q0 is current joint angles which is used to calculate current end_eff position
         pv_eef_num = self.manip_eef_pos_num(self.ang_s0, q0)
         init_pos = np.squeeze(pv_eef_num)
-        points = self.discretize(init_pos, eef_des_pos, step_size=0.45)  # step_size is inversely proportional to vel
+        points = self.discretize(init_pos, eef_des_pos, step_size=0.15)  # step_size is inversely proportional to vel
         points = np.insert(points, 0, init_pos, axis=0)
         points = np.insert(points, len(points), eef_des_pos, axis=0)
         return points
@@ -59,37 +61,49 @@ class InverseKinematics():
     # Method 1: works but needs refinement
     def jacobians(self, ang_s, q):
         omega_eef_num = self.dyn.substitute(self.omega_eef, ang_s0=ang_s, q0=q)
-        Jw = omega_eef_num.jacobian(self.qd)
-        Jw = np.array(Jw).astype(np.float64)
+        Jw_s, Jw_m = omega_eef_num.jacobian(self.qd_s), omega_eef_num.jacobian(self.qd_m)  # Jv_s and Jv_m are both functions of ang_s, q_i
+        Jw_s, Jw_m = np.array(Jw_s).astype(np.float64), np.array(Jw_m).astype(np.float64),
 
         vel_eef_num = self.dyn.substitute(self.vel_eef, ang_s0=ang_s, q0=q)
-        Jv = vel_eef_num.jacobian(self.qd)
-        Jv = np.array(Jv).astype(np.float64)
-        return np.vstack((Jv, Jw))
+        Jv_s, Jv_m = vel_eef_num.jacobian(self.qd_s), vel_eef_num.jacobian(self.qd_m)  # Jv_s and Jv_m are both functions of ang_s, q_i
+        Jv_s, Jv_m = np.array(Jv_s).astype(np.float64), np.array(Jv_m).astype(np.float64),
+        return Jv_s, Jv_m, Jw_s, Jw_m
 
-    def ang_mnt_jacobian(self, ang_s, q):  # L = K * [omega_s^T, q_dot^T]^T
+    def generalized_jacobian(self, ang_s, q):
+        Jv_s, Jv_m, Jw_s, Jw_m = self.jacobians(ang_s, q)
         L_num = self.dyn.substitute(self.L_num, ang_s0=ang_s, q0=q)
-        K = L_num.jacobian(self.qd)
-        K = np.array(K).astype(np.float64)
-        return K
+        Ls, Lm = L_num.jacobian(self.qd_s), L_num.jacobian(self.qd_m)
+        Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
+        a1 = np.linalg.solve(Ls, Lm)
+        Jv = Jv_m - Jv_s @ a1
+        Jw = Jw_m - Jw_s @ a1
+        return np.vstack((Jv, Jw)), Ls, Lm
 
-    def cost(self, X, eef_des_pos, ang_s, q):
-        r_eef_current = self.manip_eef_pos_num(ang_s, q)
-        J = self.jacobians(ang_s, q)
+    def cost(self, dq, r_eef_current, eef_des_pos, ang_s, q, J):
+        # r_eef_current = self.manip_eef_pos_num(ang_s, q)
+        # J, Ls, Lm = self.generalized_jacobian(ang_s, q)
         dx = eef_des_pos - r_eef_current
         dx = np.hstack((dx, 0., 0., 0.))
-        t1 = dx - J @ X
-        # K = self.ang_mnt_jacobian(ang_s, q)
-        # t2 = K @ X
-        cost = 0.5 * (X.T @ X + t1.T @ t1)
+        t1 = dx - J @ dq
+        W = self.lmda1 * np.eye(dq.shape[0])
+        cost = 0.5 * (dq.T @ W @ dq + self.lmda2 * t1.T @ t1)
         return cost
 
-    def inv_kin(self, X0, eef_des_pos, ang_s, q):
+    def jac_cost(self, dq, r_eef_current, eef_des_pos, ang_s, q, J):
+        # r_eef_current = self.manip_eef_pos_num(ang_s, q)
+        dx = eef_des_pos - r_eef_current
+        dx = np.hstack((dx, 0., 0., 0.))
+        t1 = dx - J @ dq
+        W = self.lmda1 * np.eye(dq.shape[0])
+        jac = W @ dq - self.lmda2 * J.T @ t1
+        return jac
+
+    def inv_kin(self, dq0, r_eef_current, eef_des_pos, ang_s, q, J):
         # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='BFGS',
         #                        options={'maxiter': 150, 'disp': True})
         bnds = ((-np.pi, np.pi), (0, None), (-np.pi/2, np.pi/2), (-np.pi/2, np.pi/2))
         bnds1 = ((None, None), (None, None), (None, None), (None, None), (None, None), (None, None))
-        results = opt.minimize(self.cost, X0, args=(eef_des_pos, ang_s, q), method='BFGS',
+        results = opt.minimize(self.cost, dq0, args=(r_eef_current, eef_des_pos, ang_s, q, J), method='BFGS', jac=self.jac_cost,
                                options={'maxiter': 150, 'disp': True})
         # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='SLSQP',
         #                        constraints=({'type': 'eq', 'fun': self.constraints}), options={'maxiter': 150, 'disp': True})
@@ -101,19 +115,20 @@ class InverseKinematics():
     def call_optimize(self, target, ang_s0, q0):
         q0 = np.squeeze(np.array(q0).astype(np.float64))
         ang_s0 = np.squeeze(np.array(ang_s0).astype(np.float64))
-        # X0 = np.hstack((ang_s0, q0))
-        X0 = np.array([0.00, 0.00, 0.03, 0.00, 0.014, 0.1])
-
+        dq0 = np.array([0.00, 0.03, 0.1])
         points = self.path(target, q0)  # q = initial joint values to compute the position of end_eff
         pr, pc = points.shape
         q, ang_s = np.zeros((3, pr + 1)), np.zeros((3, pr + 1))
         q[:, 0], ang_s[:, 0] = q0, ang_s0
-        # dX = np.zeros((X0.shape[0], pr))
+        J, Ls, Lm = self.generalized_jacobian(ang_s0, q0)
+        r_eef_current = self.manip_eef_pos_num(ang_s0, q0)
         for i in range(1, pr+1):
-            dX = self.inv_kin(X0, points[i-1, :], ang_s0, q0)
-            q[:, i] = q[:, i - 1] + dX[3:]
-            ang_s[:, i] = ang_s[:, i - 1] + dX[0:3]
-            ang_s0, q0, X0 = ang_s[:, i], q[:, i], dX
+            dq = self.inv_kin(dq0, r_eef_current, points[i-1, :], ang_s0, q0, J)
+            q[:, i] = q[:, i - 1] + dq
+            ang_s[:, i] = ang_s[:, i - 1] - np.linalg.solve(Ls, Lm) @ dq
+            ang_s0, q0, dq0 = ang_s[:, i], q[:, i], dq
+            J, Ls, Lm = self.generalized_jacobian(ang_s0, q0)
+            r_eef_current = self.manip_eef_pos_num(ang_s0, q0)
         return ang_s, q
 
     def animation(self, pos, size, color, rot_ang, q, path, pv_com=None, ax=None):
@@ -131,6 +146,7 @@ class InverseKinematics():
             for p, s, c in zip(temp, size, color):
                 self.sat_manip_sim.satellite_namipulator(rot_ang[:, i], qi, pos=p, size=s, ax=ax, color=c)
                 ax.scatter(path[:, 0], path[:, 1], path[:, 2], 'r-', lw=4)
+                ax.view_init(elev=85., azim=-58)
             plt.pause(0.3)
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
             # print('hi')
@@ -139,12 +155,15 @@ class InverseKinematics():
 if __name__ == '__main__':
     nDoF = 3
     IK = InverseKinematics(nDoF, robot='3DoF')
-    target_loc = np.array([1.0, -2.0, 0.0])
+    target_loc = np.array([-1.0, 2.0, 1.0])
     q0 = Array([[0.], [np.pi / 2], [0.]])
     ang_s0 = IK.kin.ang_s0
     r_s0 = IK.spacecraft_com_num(ang_s0, q0)
 
+    now = time.time()
     A, Q = IK.call_optimize(target_loc, ang_s0, q0)
+    cur = time.time()
+    print('Elapsed time:', cur - now)
 
     r_s = np.zeros((3, A.shape[1]))
     for i in range(A.shape[1]):

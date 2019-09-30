@@ -16,7 +16,7 @@ class InverseKinematics():
         self.kin = kinematics(nDoF, robot)
         self.dyn = dynamics(nDoF, robot)
         self.sat_manip_sim = Simulation()
-        self.m, self.I, self.l = self.dyn.mass, self.dyn.I_numeric, self.kin.l_numeric[1:]  # cutting out satellite length l0
+        self.m, self.I, self.l = self.dyn.mass, self.dyn.I_num, self.kin.l_num[1:]  # cutting out satellite length l0
         self.ang_b0, self.b0 = self.kin.ang_b, self.kin.b0
         self.ang_s0 = self.kin.ang_s0
         pv_com, pv_eef, _ = self.dyn.com_pos_vect()
