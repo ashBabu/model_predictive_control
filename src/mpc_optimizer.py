@@ -4,6 +4,7 @@ import scipy.optimize as opt
 from scipy.linalg import block_diag
 from mechanics_2DOF import dynamics, kinematics
 import matplotlib.pyplot as plt
+import time
 
 # Model Predictive Control : Currently, the prediction and control horizon are set the same with N
 #   (x_N-x_r)^T P (x_N-x_r) + \sum_{k=0}^{N-1} (x_k-x_r)^T Q (x_k-x_r) + u_k^T R u_k \\
@@ -44,7 +45,8 @@ class mpc_opt():
 
             self.t = np.linspace(0, 1, 50)
 
-            self.ul, self.uh, self.xl, self.xh = np.array([[-2.], [-3.]]), np.array([[2.], [3.]]), np.array([[-10.], [-9.], [-8.]]), np.array([[10.], [9.], [8.]])
+            self.ul, self.uh, self.xl, self.xh = np.array([[-2.], [-3.]]), np.array([[2.], [3.]]), \
+                                                 np.array([[-10.], [-9.], [-8.]]), np.array([[10.], [9.], [8.]])
             self.x0 = np.array([[0.0], [0.0], [0.0]])
             self.N = 3   # # Prediction horizon
             self.y_ref = np.array([[0], [2], [0]])
@@ -158,18 +160,23 @@ class mpc_opt():
         return self.y_ref[:, i]
 
     def cost_gradient(self, u, *args):
-        x0, t = args
+        x0, t, = args
         N = self.N
         u = u.reshape(len(u), -1)
         Sx, Su = self.transfer_matrices()
-        Qs, Qs_d, Rs, Cs = self.penalties()
-        Q_blk = self.block_diag(Qs, self.P)
-        G = 2 * (Rs + Su.transpose() @ Q_blk @ Su)
-        F = 2 * (Su.transpose() @ Q_blk @ Sx)
-        K = 2 * Su.transpose() @ Q_blk
-        # y_ref = self.ref_trajectory(t)
-        y_ref_lifted = np.tile(self.y_ref, (N, 1))
-        cost_gradient = np.vstack((0.5 * G @ u, F @ x0, -K @ y_ref_lifted, np.zeros((18, 1))))
+        Qs, Qs_d, H, Cs = self.penalties()
+        F = self.block_diag(Qs, self.P)
+        G = self.block_diag(Qs_d, self.P_dd)
+
+        W = 2 * (Su.transpose() @ F @ Su + H)
+        K = 2 * Su.transpose() @ F @ Sx
+        L = 2 * Su.transpose() @ G
+        if self.y_ref.shape[1] > 1:
+            y_ref = self.y_ref[:, t].reshape(len(self.y_ref[:, t]), -1)
+        else:
+            y_ref = self.y_ref
+        y_ref_lifted = np.tile(y_ref, (N, 1))
+        cost_gradient = W @ u + K @ x0 - L @ y_ref_lifted
         return np.squeeze(cost_gradient)
 
     def constraints(self, u, *args):
@@ -216,8 +223,8 @@ class mpc_opt():
         # U = opt.minimize(self.cost_function, u0, args=(x0, t), method='SLSQP',
         #                  options={'maxiter': 200, 'disp': True}, jac=self.cost_gradient, constraints=con_ineq)
 
-        U = opt.minimize(self.cost_function, u0, args=(x0, t), method='SLSQP',
-                         options={'maxiter': 200, 'disp': True},)# constraints=con_ineq)
+        U = opt.minimize(self.cost_function, u0, args=(x0, t), method='SLSQP', jac=self.cost_gradient,
+                         options={'maxiter': 200, 'disp': True}, constraints=con_ineq)
         U = U.x
         return U
 
@@ -243,8 +250,10 @@ if __name__ == '__main__':
 
     cg = mpc.cost_gradient(np.tile(u0, (mpc.N, 1)), x0, 1)
     cons = mpc.constraints(np.tile(u0, (mpc.N, 1)), x0, 1)
-
+    now = time.time()
     X, U = mpc.get_state_and_input(u0, x0)
+    cur = time.time()
+    print('Elapsed Time: ', cur-now)
 
     plt.figure(1)
     plt.plot(X[0, :], '--r')
