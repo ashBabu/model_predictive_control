@@ -59,10 +59,12 @@ class Rmanip_mpc():
         fig = plt.figure()
         ref_traj = ref
         plt.plot(ref_traj[0, :], ref_traj[1, :])
-        ax = fig.add_subplot(111)
         # plt.show(block=False)
         x, y, z = 0, 0, 0
         for i in range(X.shape[1]):
+            plt.clf()
+            ax = fig.add_subplot(111)
+            ax.plot(ref_traj[0, :], ref_traj[1, :])
             ax.plot([x, X[0, i]], [y, X[1, i]])
             ax.plot([X[0, i], Y[0, i]], [X[1, i], Y[1, i]])
             plt.xlabel('X')
@@ -72,10 +74,9 @@ class Rmanip_mpc():
             ax.set_ylim(-1 * scale, 1 * scale)
             # fig.canvas.draw()
             # fig.canvas.flush_events()
-            plt.gca().set_aspect('equal', adjustable='box')
+            # plt.gca().set_aspect('equal', adjustable='box')
             plt.pause(0.1)
-        # plt.show(block=True)
-            # plt.clf()
+            # plt.show(block=True)
             # plt.hold(False)
 
 
@@ -86,7 +87,7 @@ if __name__ == '__main__':
     ref_eight = two_R.ref_traj2()
     ref_traj = two_R.ref_traj2()
     two_R.mpc = mpc_opt(Q=two_R.Q, P=two_R.P, R=two_R.R, A=two_R.A, B=two_R.B, C=two_R.C, time=two_R.t, ul=two_R.ul,
-                       uh=two_R.uh, xl=two_R.xh, N=two_R.N, ref_traj=two_R.ref_traj_joint_space(ref_traj))
+                       uh=two_R.uh, xl=two_R.xl, xh=two_R.xh, N=two_R.N, ref_traj=two_R.ref_traj_joint_space(ref_traj))
 
     q = two_R.ref_traj_joint_space(ref_traj)
     X, U = two_R.mpc.get_state_and_input(two_R.u0, two_R.x0)
