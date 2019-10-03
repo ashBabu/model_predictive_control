@@ -85,7 +85,9 @@ class InverseKinematics():
         dx = eef_des_pos - r_eef_current
         dx = np.hstack((dx, 0., 0., 0.))
         t1 = dx - J @ dq
-        W = self.lmda1 * np.eye(dq.shape[0])
+        g = np.array([0.5, 0.1, 0.5])
+        W = np.eye(dq.shape[0]) #@ np.diag(g)
+        # W = self.lmda1 * np.eye(dq.shape[0])
         cost = 0.5 * (dq.T @ W @ dq + self.lmda2 * t1.T @ t1)
         return cost
 
@@ -94,7 +96,9 @@ class InverseKinematics():
         dx = eef_des_pos - r_eef_current
         dx = np.hstack((dx, 0., 0., 0.))
         t1 = dx - J @ dq
-        W = self.lmda1 * np.eye(dq.shape[0])
+        g = np.array([0.5, 2, 0.8])
+        W = np.eye(dq.shape[0]) #@ np.diag(g)
+        # W = self.lmda1 * np.eye(dq.shape[0])
         jac = W @ dq - self.lmda2 * J.T @ t1
         return jac
 
@@ -155,7 +159,7 @@ class InverseKinematics():
 if __name__ == '__main__':
     nDoF = 3
     IK = InverseKinematics(nDoF, robot='3DoF')
-    target_loc = np.array([-1.0, 2.0, 1.0])
+    target_loc = np.array([-1.0, 2.0, 0.0])
     q0 = Array([[0.], [np.pi / 2], [0.]])
     ang_s0 = IK.kin.ang_s0
     r_s0 = IK.spacecraft_com_num(ang_s0, q0)
