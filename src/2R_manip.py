@@ -19,15 +19,15 @@ class Rmanip_mpc():
         # Penalties
         self.Q = 100 * np.diag((0.5, 1))  # state penalty
         self.P = 10 * np.diag((1.5, 1.5))  # terminal state penalty
-        self.R = 10 * np.diag((0.5, 1))  # state penalty
+        # self.R = 10 * np.diag((0.5, 1))  # state penalty
         # self.R = 5*np.eye(2)  # input penalty
 
-        self.R = np.eye(2)
+        self.R = 0.010 * np.eye(2)
         self.t = np.linspace(0, 10, 50)  # sampling time
-        self.ul, self.uh, self.xl, self.xh = np.array([[-10.], [-30.]]), np.array([[20.], [30.]]), np.array(
+        self.ul, self.uh, self.xl, self.xh = np.array([[-1.], [-3.]]), np.array([[2.5], [3.0]]), np.array(
             [[-10.], [-9.], [-8.], [-8.]]), np.array([[10.], [9.], [8.], [8.]])  # input and state lower and upper limits
         self.N = 5  # Prediction horizon (control horizon is assumed to be the same)
-        self.x0, self.u0, = np.array([[0.1], [0.2], [0.4], [0.1]]), np.array([[1.4], [2.3]])  # initial state and input guess
+        self.x0, self.u0, = np.array([[0.1], [0.2], [0.4], [0.1]]), np.array([[0.4], [2.3]])  # initial state and input guess
 
     def end_effec_pose(self, q):
         pos, _ = self.kin.fwd_kin_numeric(self.kin.ln, q)
@@ -89,15 +89,15 @@ if __name__ == '__main__':
     two_R.mpc = mpc_opt(Q=two_R.Q, P=two_R.P, R=two_R.R, A=two_R.A, B=two_R.B, C=two_R.C, time=two_R.t, ul=two_R.ul,
                        uh=two_R.uh, xl=two_R.xl, xh=two_R.xh, N=two_R.N, ref_traj=two_R.ref_traj_joint_space(ref_traj))
 
-    q = two_R.ref_traj_joint_space(ref_traj)
-    X, U = two_R.mpc.get_state_and_input(two_R.u0, two_R.x0)
-    # q = X[0:2, :]
+    # q_actual = two_R.ref_traj_joint_space(ref_traj)  # Actual joint angles obtained from inverse kinematics
+    X, U = two_R.mpc.get_state_and_input(two_R.u0, two_R.x0)  # State and Input matrices after MPC optimization
+    q = X[0:2, :]  # State vector X is [q1, q2, q1_dot, q2_dot]
     pos, x, y = np.zeros((3, q.shape[1])), np.zeros((2, q.shape[1])), np.zeros((q.shape[1]))
     for i in range(q.shape[1]):  # to get the end-point of 1st link
         temp = np.array(two_R.end_effec_pose(q[:, i])).astype(np.float64)
-        pos[:, i] = temp.reshape(-1, len(temp))
-        a = np.array(two_R.kin.ln[0] * np.cos(q[0, i])).astype(np.float64)
-        b = np.array(two_R.kin.ln[0] * np.sin(q[0, i])).astype(np.float64)
+        pos[:, i] = temp.reshape(-1, len(temp))  # end-eff x, y positions
+        a = np.array(two_R.kin.ln[0] * np.cos(q[0, i])).astype(np.float64)  # x position of joint 2
+        b = np.array(two_R.kin.ln[0] * np.sin(q[0, i])).astype(np.float64)  # y position of joint 2
         x[:, i] = a, b #np.vstack((a, b))
 
     lp, q_dot = two_R.kin.ln, X[2:4, :]

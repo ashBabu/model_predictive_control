@@ -216,13 +216,6 @@ class mpc_opt():
         con_ineq = {'type': 'ineq',
                     'fun': self.constraints,
                     'args': (x0, t)}
-        # con_eq = {'type': 'eq',
-        #           'fun': self.con_eq,
-        #           'args': (x0, t)}
-
-        # U = opt.minimize(self.cost_function, u0, args=(x0, t), method='SLSQP',
-        #                  options={'maxiter': 200, 'disp': True}, jac=self.cost_gradient, constraints=con_ineq)
-
         U = opt.minimize(self.cost_function, u0, args=(x0, t), method='SLSQP', jac=self.cost_gradient,
                          options={'maxiter': 200, 'disp': True}, constraints=con_ineq)
         U = U.x
@@ -239,7 +232,7 @@ class mpc_opt():
             u0 = u
             u = u[0:nu].reshape(nu, -1)
             x0 = x0.reshape(len(x0), -1)
-            x0 = self.A @ x0 + self.B @ u
+            x0 = self.A @ x0 + self.B @ u #+ 0.1*np.random.rand(x0.shape[1])
         return X, U
 
 
