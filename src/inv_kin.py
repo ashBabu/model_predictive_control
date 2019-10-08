@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.optimize as opt
+import time
 import matplotlib.pyplot as plt
 from eom_symbolic import dynamics, kinematics
 from sympy import *
@@ -29,6 +30,7 @@ class InverseKinematics():
         self.vel_eef = self.dyn.substitute(j_vel_eef, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
         self.qd = self.kin.qd[3:]
         self.qd_s, self.qd_m = self.qd[0:3], self.qd[3:]
+        self.lmda1, self.lmda2 = 2, 0.5  # optimization weights
 
     def discretize(self, start, goal, step_size=0.02):
         w = goal - start
@@ -77,6 +79,9 @@ class InverseKinematics():
         Jw = Jw_m - Jw_s @ a1
         return np.vstack((Jv, Jw)), Ls, Lm
 
+    # Method 1: Directly calculating as given in Umetani and Yoshida equation 22
+    # Cant handle joint limits
+
     def dir(self, X, point):
         ang_s, q = X[0:3], X[3:]
         r_eef_current = self.manip_eef_pos_num(ang_s, q)
@@ -102,29 +107,37 @@ class InverseKinematics():
             X0 = np.hstack((ang_s[:, i], q[:, i]))
         return ang_s, q
 
-    # Method 2: Works but needs refinement
-    def constraints(self,  X):
-        ang_s, q = np.array([0., 0., X[0]]), X[1:]
-        L = self.dyn.substitute(self.L_num, ang_s0=ang_s, q0=q)
-        Ls, Lm = L.jacobian(self.qd_s), L.jacobian(self.qd_m)
-        Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
-        g = Ls @ ang_s + Lm @ q
-        f = g[0]**2 + g[1]**2 + g[2]**2
-        return f
+    # Method 2: Using optimization and hence can handle bounds
 
-    def inv_kin_optim_func(self, X, r_eef_des,):
-        ang_s, q = np.array([0., 0., X[0]]), X[1:]
-        # ang_s, q = X[0:3], X[3:]
-        pv_eef_num = self.manip_eef_pos_num(ang_s, q,)
-        temp = r_eef_des - np.squeeze(pv_eef_num)
-        return temp.dot(temp)
+    def cost(self, dq, r_eef_current, eef_des_pos, ang_s, q, J):
+        # r_eef_current = self.manip_eef_pos_num(ang_s, q)
+        # J, Ls, Lm = self.generalized_jacobian(ang_s, q)
+        dx = eef_des_pos - r_eef_current
+        dx = np.hstack((dx, 0., 0., 0.))
+        t1 = dx - J @ dq
+        g = np.array([0.5, 0.1, 0.5])
+        W = np.eye(dq.shape[0]) #@ np.diag(g)
+        # W = self.lmda1 * np.eye(dq.shape[0])
+        cost = 0.5 * (dq.T @ W @ dq + self.lmda2 * t1.T @ t1)
+        return cost
 
-    def inv_kin(self, X0, eef_des_pos):
+    def jac_cost(self, dq, r_eef_current, eef_des_pos, ang_s, q, J):
+        # r_eef_current = self.manip_eef_pos_num(ang_s, q)
+        dx = eef_des_pos - r_eef_current
+        dx = np.hstack((dx, 0., 0., 0.))
+        t1 = dx - J @ dq
+        g = np.array([0.5, 2, 0.8])
+        W = np.eye(dq.shape[0]) #@ np.diag(g)
+        # W = self.lmda1 * np.eye(dq.shape[0])
+        jac = W @ dq - self.lmda2 * J.T @ t1
+        return jac
+
+    def inv_kin(self, dq0, r_eef_current, eef_des_pos, ang_s, q, J):
         # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='BFGS',
         #                        options={'maxiter': 150, 'disp': True})
         bnds = ((-np.pi, np.pi), (0, None), (-np.pi/2, np.pi/2), (-np.pi/2, np.pi/2))
-        bnds1 = ((None, None), (None, None), (None, None), (None, None))
-        results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='SLSQP', bounds=bnds1,
+        bnds1 = ((None, None), (None, None), (None, None), (None, None), (None, None), (None, None))
+        results = opt.minimize(self.cost, dq0, args=(r_eef_current, eef_des_pos, ang_s, q, J), method='BFGS', jac=self.jac_cost,
                                options={'maxiter': 150, 'disp': True})
         # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='SLSQP',
         #                        constraints=({'type': 'eq', 'fun': self.constraints}), options={'maxiter': 150, 'disp': True})
@@ -133,16 +146,24 @@ class InverseKinematics():
         #                           args=eef_des_pos, iprint=0)
         return results.x
 
-    def call_optimize(self, target, q):
-        points = self.path(target, q)  # q = initial joint values to compute the position of end_eff
+    def call_optimize(self, target, ang_s0, q0):
+        q0 = np.squeeze(np.array(q0).astype(np.float64))
+        ang_s0 = np.squeeze(np.array(ang_s0).astype(np.float64))
+        dq0 = np.array([0.00, 0.03, 0.1])
+        points = self.path(target, q0)  # q = initial joint values to compute the position of end_eff
         pr, pc = points.shape
-        X0 = np.array([0.05, 0.0, 0.12, 0.2])
-        # X0 = np.array([0.05, 0.07, 0.0, 0.0, 0.12, 0.2])
-        X = np.zeros((X0.shape[0], pr))
-        for i in range(pr):
-            X[:, i] = self.inv_kin(X0, points[i, :])
-            X0 = X[:, i]
-        return X
+        q, ang_s = np.zeros((3, pr + 1)), np.zeros((3, pr + 1))
+        q[:, 0], ang_s[:, 0] = q0, ang_s0
+        J, Ls, Lm = self.generalized_jacobian(ang_s0, q0)
+        r_eef_current = self.manip_eef_pos_num(ang_s0, q0)
+        for i in range(1, pr+1):
+            dq = self.inv_kin(dq0, r_eef_current, points[i-1, :], ang_s0, q0, J)
+            q[:, i] = q[:, i - 1] + dq
+            ang_s[:, i] = ang_s[:, i - 1] - np.linalg.solve(Ls, Lm) @ dq
+            ang_s0, q0, dq0 = ang_s[:, i], q[:, i], dq
+            J, Ls, Lm = self.generalized_jacobian(ang_s0, q0)
+            r_eef_current = self.manip_eef_pos_num(ang_s0, q0)
+        return ang_s, q
 
     def animation(self, pos, size, color, rot_ang, q, path, pv_com=None, ax=None):
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
@@ -157,8 +178,9 @@ class InverseKinematics():
             if isinstance(pv_com, (list, tuple, np.ndarray)):
                 ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
             for p, s, c in zip(temp, size, color):
-                self.sat_manip_sim.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
+                self.sat_manip_sim.satellite_namipulator(rot_ang[:, i], qi, pos=p, size=s, ax=ax, color=c)
                 ax.scatter(path[:, 0], path[:, 1], path[:, 2], 'r-', lw=4)
+                ax.view_init(elev=85., azim=-58)
             plt.pause(0.3)
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
             # print('hi')
@@ -174,13 +196,12 @@ if __name__ == '__main__':
 
     f1 = int(input('Enter 1: for optimized result 2: analytical'))
     if f1 == 1:
-        X = IK.call_optimize(target_loc, q0)  # optimization method
-        z = np.zeros(X.shape[1])
-        ang_s, q = np.vstack((z, z, X[0, :])), X[1:, :]
-        A, Q = ang_s, q
+        A, Q = IK.call_optimize(target_loc, ang_s0, q0)  # optimization method
+        # z = np.zeros(X.shape[1])
+        # ang_s, q = np.vstack((z, z, X[0, :])), X[1:, :]
+        # A, Q = ang_s, q
     else:
-        ang_s1, q1 = IK.call_dir(target_loc, q0, ang_s0)  # direct method
-        A, Q = ang_s1, q1
+        A, Q = IK.call_dir(target_loc, q0, ang_s0)  # direct method
 
     r_s = np.zeros((3, A.shape[1]))
     for i in range(A.shape[1]):
