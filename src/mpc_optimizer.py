@@ -232,7 +232,7 @@ class mpc_opt():
             u0 = u
             u = u[0:nu].reshape(nu, -1)
             x0 = x0.reshape(len(x0), -1)
-            x0 = self.A @ x0 + self.B @ u #+ 0.1*np.random.rand(x0.shape[1])
+            x0 = self.A @ x0 + self.B @ u + 0.001*np.random.rand(x0.shape[1])
         return X, U
 
 

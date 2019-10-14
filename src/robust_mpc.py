@@ -19,14 +19,9 @@ class RobustMPC():
 
         # Penalties
         self.Q = 100 * np.diag((0.5, 1))  # state penalty
-        # self.R = 10 * np.diag((0.5, 1))  # state penalty
-        # self.R = 5*np.eye(2)  # input penalty
-
         self.R = 0.010 * np.eye(2)
-        self.P = are(self.A, self.B, self.Q, self.R)
+        self.P = are(self.A, self.B, self.Q, self.R)  # terminal constraint obtained from solving algebraic ricatti eqn.
         self.K = np.linalg.solve((self.B.T @ self.P @ self.B + self.R), (self.B.T @ self.P @ self.A))  # gain Matrix
-
-
 
         self.t = np.linspace(0, 10, 50)  # sampling time
         self.ul, self.uh, self.xl, self.xh = np.array([[-1.], [-3.]]), np.array([[2.5], [3.0]]), np.array(

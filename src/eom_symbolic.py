@@ -597,7 +597,8 @@ if __name__ == '__main__':
     # I = dyn.momentOfInertia_transform()
     # r_s, ang_s, q, qdm_numeric, t = dyn.get_positions()
     # kin_energy = dyn.kinetic_energy()
-    # M, C = dyn.get_dyn_para()
+    M, C = dyn.get_dyn_para()
+    print('M = :', M, '######\nC =:', C)
     # M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
     # M, C, G = dyn.dyn_para_numeric(lp, qp, q_dot)  # Numeric values dynamic parameters
     print('hi')
