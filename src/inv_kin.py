@@ -109,9 +109,7 @@ class InverseKinematics():
 
     # Method 2: Using optimization and hence can handle bounds
 
-    def cost(self, dq, r_eef_current, eef_des_pos, ang_s, q, J):
-        # r_eef_current = self.manip_eef_pos_num(ang_s, q)
-        # J, Ls, Lm = self.generalized_jacobian(ang_s, q)
+    def cost(self, dq, r_eef_current, eef_des_pos, J):
         dx = eef_des_pos - r_eef_current
         dx = np.hstack((dx, 0., 0., 0.))
         t1 = dx - J @ dq
@@ -121,7 +119,7 @@ class InverseKinematics():
         cost = 0.5 * (dq.T @ W @ dq + self.lmda2 * t1.T @ t1)
         return cost
 
-    def jac_cost(self, dq, r_eef_current, eef_des_pos, ang_s, q, J):
+    def jac_cost(self, dq, r_eef_current, eef_des_pos, J):
         # r_eef_current = self.manip_eef_pos_num(ang_s, q)
         dx = eef_des_pos - r_eef_current
         dx = np.hstack((dx, 0., 0., 0.))
@@ -132,15 +130,13 @@ class InverseKinematics():
         jac = W @ dq - self.lmda2 * J.T @ t1
         return jac
 
-    def inv_kin(self, dq0, r_eef_current, eef_des_pos, ang_s, q, J):
+    def inv_kin(self, dq0, r_eef_current, eef_des_pos, J):
         # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='BFGS',
         #                        options={'maxiter': 150, 'disp': True})
-        bnds = ((-np.pi, np.pi), (0, None), (-np.pi/2, np.pi/2), (-np.pi/2, np.pi/2))
+        bnds = ((-np.pi, np.pi), (-np.pi/6, np.pi), (-np.pi/4, np.pi/2))
         bnds1 = ((None, None), (None, None), (None, None), (None, None), (None, None), (None, None))
-        results = opt.minimize(self.cost, dq0, args=(r_eef_current, eef_des_pos, ang_s, q, J), method='BFGS', jac=self.jac_cost,
-                               options={'maxiter': 150, 'disp': True})
-        # results = opt.minimize(self.inv_kin_optim_func, X0, args=eef_des_pos, method='SLSQP',
-        #                        constraints=({'type': 'eq', 'fun': self.constraints}), options={'maxiter': 150, 'disp': True})
+        results = opt.minimize(self.cost, dq0, args=(r_eef_current, eef_des_pos, J), method='SLSQP', jac=self.jac_cost,
+                               options={'maxiter': 150, 'disp': True}, bounds=bnds)
         # results = opt.fmin_slsqp(func=self.inv_kin_optim_func,
         #                           x0=X0, eqcons=[self.constraints[0],self.constraints[1], self.constraints[2]],
         #                           args=eef_des_pos, iprint=0)
@@ -157,7 +153,7 @@ class InverseKinematics():
         J, Ls, Lm = self.generalized_jacobian(ang_s0, q0)
         r_eef_current = self.manip_eef_pos_num(ang_s0, q0)
         for i in range(1, pr+1):
-            dq = self.inv_kin(dq0, r_eef_current, points[i-1, :], ang_s0, q0, J)
+            dq = self.inv_kin(dq0, r_eef_current, points[i-1, :], J)
             q[:, i] = q[:, i - 1] + dq
             ang_s[:, i] = ang_s[:, i - 1] - np.linalg.solve(Ls, Lm) @ dq
             ang_s0, q0, dq0 = ang_s[:, i], q[:, i], dq
@@ -181,8 +177,8 @@ class InverseKinematics():
                 self.sat_manip_sim.satellite_namipulator(rot_ang[:, i], qi, pos=p, size=s, ax=ax, color=c)
                 ax.scatter(path[:, 0], path[:, 1], path[:, 2], 'r-', lw=4)
                 ax.view_init(elev=85., azim=-58)
-            plt.pause(0.3)
-            # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
+            plt.pause(0.05)
+            plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inverse_kinematic_3DOF/%02d.png" % i)
             # print('hi')
 
 

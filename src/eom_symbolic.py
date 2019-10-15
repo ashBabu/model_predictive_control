@@ -264,7 +264,7 @@ class dynamics():
         self.kin = kinematics()
 
         # numeric values
-        self.mass = np.array([20.0, 20.0, 50.0, 50.0], dtype=float)  # mass of satellite and each of the links respec
+        self.mass = np.array([200.0, 20.0, 50.0, 50.0], dtype=float)  # mass of satellite and each of the links respec
         self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
         self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
         self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
