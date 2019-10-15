@@ -178,7 +178,7 @@ class InverseKinematics():
                 ax.scatter(path[:, 0], path[:, 1], path[:, 2], 'r-', lw=4)
                 ax.view_init(elev=85., azim=-58)
             plt.pause(0.05)
-            plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inverse_kinematic_3DOF/%02d.png" % i)
+            # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inverse_kinematic_3DOF/%02d.png" % i)
             # print('hi')
 
 

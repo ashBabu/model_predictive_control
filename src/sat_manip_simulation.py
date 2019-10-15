@@ -65,7 +65,7 @@ class Simulation(object):
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
-            # ax.view_init(elev=64., azim=67.)
+            ax.view_init(elev=83., azim=-83.)
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
@@ -84,7 +84,7 @@ class Simulation(object):
                 ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
             for p, s, c in zip(temp, size, color):
                 self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
-            plt.pause(0.3)
+            plt.pause(0.05)
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
             # print('hi')
 
