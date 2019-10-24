@@ -462,7 +462,6 @@ class dynamics():
 
     def get_dyn_para(self):
         K = self.kinetic_energy()
-        print(K)
         q, qd = self.kin.q, self.kin.qd
         # P = self.potential_energy()
         L = K   # Lagrangian. Potential energy at space is insignificant (microgravity envrnt)
@@ -618,7 +617,7 @@ if __name__ == '__main__':
     # I = dyn.momentOfInertia_transform()
     # r_s, ang_s, q, qdm_numeric, t = dyn.get_positions()
     # kin_energy = dyn.kinetic_energy()
-    M, C = dyn.get_dyn_para()
+    M, C = dyn.get_dyn_par_num(m=m, l=l, I=I, ang_s0=[0, 0, 0], q0=np.array([0., np.pi/4., -np.pi/6.]))
     print('M = :', M, '######\nC =:', C)
     # M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
     # M, C, G = dyn.dyn_para_numeric(lp, qp, q_dot)  # Numeric values dynamic parameters
