@@ -416,13 +416,17 @@ class dynamics():
         #     parm = msubs(ang_b0, {self.kin.ang_xb: ang_b0[0], self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2]})
         return parm
 
-    def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, qdm=None):
+    def ang_moment_sparsing(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None,):
         L = self.ang_momentum_conservation()
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
         L_num = self.substitute(L, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
         Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
         Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
+        return Ls, Lm
+
+    def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, qdm=None):
+        Ls, Lm = self.ang_moment_sparsing(m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None,)
         shp = qdm.shape[1]
         omega_s = np.zeros((3, shp))
         for i in range(shp):
@@ -449,7 +453,8 @@ class dynamics():
 
     def kinetic_energy(self):
         j_I = self.momentOfInertia_transform()
-        w, com_vel, _ = self.kin.velocities()
+        # w, com_vel, _ = self.kin.velocities()  # for the full 9 x 9 matrix (6 DOF for spacecraft and 3DOF for arm)
+        w, com_vel, _ = self.velocities_frm_momentum_conservation()
         K = 0
         for i in range(self.nDoF + 1):
             K += 0.5*self.m[i]*com_vel[:, i].dot(com_vel[:, i]) + 0.5*w[:, i].dot(j_I[i] @ w[:, i])
@@ -457,6 +462,7 @@ class dynamics():
 
     def get_dyn_para(self):
         K = self.kinetic_energy()
+        print(K)
         q, qd = self.kin.q, self.kin.qd
         # P = self.potential_energy()
         L = K   # Lagrangian. Potential energy at space is insignificant (microgravity envrnt)
@@ -469,6 +475,21 @@ class dynamics():
         # LM.form_lagranges_equations()
         # print LM.mass_matrix.applyfunc(trigsimp)
         # Matrix([P]).applyfunc(trigsimp)
+        return M, C
+
+    def get_dyn_par_num(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None):
+        K = self.kinetic_energy()
+        qd = self.kin.qd[3:]
+        qd_s, qd_m = qd[0:3], qd[3:]
+        K_num = self.substitute(K, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
+        Ks, Km = K_num.jacobian(qd_s), K_num.jacobian(qd_m)
+        Ls, Lm = self.ang_moment_sparsing(m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
+        temp = np.linalg.solve(Ls, Lm)
+        K_num = (Km - Ks @ temp)
+
+        temp1 = transpose(Matrix([[K_num]]).jacobian(qd_m))
+        M = temp1.jacobian(qd_m)  # .applyfunc(trigsimp)  # Mass matrix
+        C = temp1.jacobian(self.kin.qm) * Matrix(qd_m) - transpose(Matrix([[K]]).jacobian(self.kin.qm))  # Coriolis vector
         return M, C
 
     def jnt_vel_prof_req(self):  # as given in Umetani and Yoshida
@@ -584,8 +605,8 @@ if __name__ == '__main__':
     # a, b, c = kin.position_vectors()
     # J_sat = dyn.jacobian_satellite()
     # J_manip = dyn.geometric_jacobian_manip()
-    L = dyn.ang_momentum_conservation()
-    omega, vel_com, vel_eef = dyn.velocities_frm_momentum_conservation()
+    # L = dyn.ang_momentum_conservation()
+    # omega, vel_com, vel_eef = dyn.velocities_frm_momentum_conservation()
     # ang_s0, ang_b, b0 = np.array([0., np.)pi/4., -np.pi/6.]), np.array([0., np.pi/4., -np.pi/6.]), np.array([0.25, 0.25, 0])
     #
     # j_T_full, pv_origins, pv_com, j_com_vec = kin.position_vectors()
