@@ -178,7 +178,7 @@ class InverseKinematics():
                 ax.scatter(path[:, 0], path[:, 1], path[:, 2], 'r-', lw=4)
                 ax.view_init(elev=85., azim=-58)
             plt.pause(0.05)
-            # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inverse_kinematic_3DOF/%02d.png" % i)
+            # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inv_kinematics_direct/%02d.png" % i)
             # print('hi')
 
 
@@ -186,7 +186,8 @@ if __name__ == '__main__':
     nDoF = 3
     IK = InverseKinematics(nDoF, robot='3DoF')
     target_loc = np.array([1.0, -2.0, 0.0])
-    q0 = Array([[0.], [np.pi / 2], [0.]])
+    q0 = Array([[0.], [np.pi / 2], [-0.0]])
+    # q0 = Array([[0.], [np.pi / 2.5], [-0.03]])
     ang_s0 = IK.kin.ang_s0
     r_s0 = IK.spacecraft_com_num(ang_s0, q0)
 
