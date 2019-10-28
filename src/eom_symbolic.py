@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 np.set_printoptions(precision=4)
 init_printing()
+import pickle
 
 
 class kinematics():
@@ -392,7 +393,8 @@ class dynamics():
             # I_o = I_com + I_/com
         return L
 
-    def substitute(self, parm,  m=None, l=None, I=None, b=None, ang_b0=None, r_s0=None, ang_s0=None, q0=None,):
+    def substitute(self, parm,  m=None, l=None, I=None, b=None, ang_b0=None, r_s0=None, ang_s0=None, q0=None,
+                   omega_s=None, dq=None):
         if isinstance(m, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             for i in range(len(m)):
                 parm = msubs(parm, {self.m[i]: m[i]})
@@ -405,15 +407,20 @@ class dynamics():
         if isinstance(q0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             for i in range(len(q0)):
                 parm = msubs(parm, {self.kin.qm[i]: q0[i]})
+        if isinstance(dq, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            for i in range(len(dq)):
+                parm = msubs(parm, {self.kin.qdm[i]: qd[i]})
         if isinstance(b, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2]})
         if isinstance(ang_s0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             parm = msubs(parm, {self.kin.ang_xs: ang_s0[0], self.kin.ang_ys: ang_s0[1], self.kin.ang_zs: ang_s0[2]})
+        if isinstance(omega_s, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            parm = msubs(parm, {self.kin.w_sxd: omega_s[0], self.kin.w_syd: omega_s[1], self.kin.w_szd: omega_s[2]})
         if isinstance(r_s0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             parm = msubs(parm, {self.kin.r_sx: r_s0[0], self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
         # if isinstance(ang_b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
         #     parm = msubs(ang_b0, {self.kin.ang_xb: ang_b0[0], self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2]})
-        return parm
+        return parm.evalf()
 
     def ang_moment_sparsing(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None,):
         L = self.ang_momentum_conservation()
@@ -603,8 +610,26 @@ if __name__ == '__main__':
     ang_s0 = Array([0., 0., 0.])
     q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
     M, C = dyn.get_dyn_para()
-    M_num = dyn.substitute(M, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
-    C_num = dyn.substitute(C, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
+    # M_num = dyn.substitute(M, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
+    # C_num = dyn.substitute(C, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
+
+    q, qd = kin.q[3:], kin.qd[3:]
+    alpha, beta, gamma = symbols('alpha beta gamma')
+    alpha_d, beta_d, gamma_d = symbols('alpha_d beta_d gamma_d')
+    theta_1, theta_2, theta_3 = symbols('theta_1 theta_2 theta_3')
+    theta_1d, theta_2d, theta_3d = symbols('theta_1d theta_2d theta_3d')
+    ang_s = [alpha, beta, gamma]
+    omega_s = [alpha_d, beta_d, gamma_d]
+    theta = [theta_1, theta_2, theta_3]
+    theta_d = [theta_1d, theta_2d, theta_3d]
+    Mt = dyn.substitute(M, m=m, l=l, I=I, ang_s0=ang_s, q0=theta)
+    Ct = dyn.substitute(C, m=m, l=l, I=I, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
+
+    # with open('MassMat.pickle', 'wb') as outM:
+    #     outM.write(pickle.dumps(Mt))
+    #
+    # with open('Corioli.pickle', 'wb') as outC:
+    #     outC.write(pickle.dumps(Ct))
     # r_s, ang_s, q, qdm_numeric, t, pv_com = dyn.get_positions()
     # T_joint, T_i_i1 = kin.fwd_kin_symb_manip(kin.qm)
     # a, b, c = kin.position_vectors()
@@ -627,15 +652,15 @@ if __name__ == '__main__':
     # with open('corio.pickle', 'wb') as outf:
     #     outf.write(pickle.dumps(C))
     # Mt, Ct = dyn.get_dyn_para_num(m=m, l=l, I=I, ang_s0=np.array([0.1, 0.1, 0.1]), q0=np.array([0.1, np.pi/4., -np.pi/6.]))
-    # file = open('MassMatrix_Mt.txt', 'w')
-    # file.write(str(M))
+    # file = open('MassMatrixT.txt', 'w')
+    # file.write(str(Mt))
     # file.close()
     #
-    # file = open('Coriolis_Ct.txt', 'w')
-    # file.write(str(C))
+    # file = open('CoriolisT.txt', 'w')
+    # file.write(str(Ct))
     # file.close()
 
     # print('M = :', M, '######\nC =:', C)
     # M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
     # M, C, G = dyn.dyn_para_numeric(lp, qp, q_dot)  # Numeric values dynamic parameters
-    print(C_num[0])
+    # print(C_num[0])
