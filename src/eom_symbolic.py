@@ -1,11 +1,11 @@
 import numpy as np
-from scipy.optimize import fsolve, root
 from sympy import *
 from sympy.physics.mechanics import *
 from sympy.tensor.array import Array
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 np.set_printoptions(precision=4)
+init_printing()
 
 
 class kinematics():
@@ -18,7 +18,6 @@ class kinematics():
         if robot == '3DoF':  # as given in umeneti and yoshida: resolved motion rate control of space manipulators
             self.l_num = np.array([3.5, 0.25, 2.5, 2.5])
             self.ang_s0 = Array([0., 0., 0.])
-            self.r_s0 = Array([0.01, 0.01, 0.0])
             self.q0 = Array([pi / 3 * 0, 5*pi / 4, pi/2])  # as given in Umaneti and Yoshida: Resolved..
             # self.q0 = Array([pi / 3 * 0, pi / 2, 0])
             # DH parameters:
@@ -462,7 +461,7 @@ class dynamics():
 
     def get_dyn_para(self):
         K = self.kinetic_energy()
-        q, qd = self.kin.q, self.kin.qd
+        q, qd = self.kin.q[3:], self.kin.qd[3:]
         # P = self.potential_energy()
         L = K   # Lagrangian. Potential energy at space is insignificant (microgravity envrnt)
         temp = transpose(Matrix([[K]]).jacobian(qd))
@@ -476,20 +475,23 @@ class dynamics():
         # Matrix([P]).applyfunc(trigsimp)
         return M, C
 
-    def get_dyn_par_num(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None):
+    def get_dyn_para_num(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None):
         K = self.kinetic_energy()
-        qd = self.kin.qd[3:]
+        q, qd = self.kin.q[3:], self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
         K_num = self.substitute(K, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
-        Ks, Km = K_num.jacobian(qd_s), K_num.jacobian(qd_m)
-        Ls, Lm = self.ang_moment_sparsing(m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
-        temp = np.linalg.solve(Ls, Lm)
-        K_num = (Km - Ks @ temp)
+        temp = transpose(Matrix([[K_num]]).jacobian(qd))
+        Mt = temp.jacobian(qd)  # .applyfunc(trigsimp)  # Mass matrix
+        Ct = temp.jacobian(q) * Matrix(qd) - transpose(Matrix([[K_num]]).jacobian(q))  # Coriolis vector
+        # Ks, Km = K_num.jacobian(qd_s), K_num.jacobian(qd_m)
+        # Ls, Lm = self.ang_moment_sparsing(m=m, l=l, I=I, b=b, ang_b0=ang_b0,)# ang_s0=ang_s0, q0=q0)
+        # temp = np.linalg.solve(Ls, Lm)
+        # K_num = (Km - Ks @ temp)
 
-        temp1 = transpose(Matrix([[K_num]]).jacobian(qd_m))
-        M = temp1.jacobian(qd_m)  # .applyfunc(trigsimp)  # Mass matrix
-        C = temp1.jacobian(self.kin.qm) * Matrix(qd_m) - transpose(Matrix([[K]]).jacobian(self.kin.qm))  # Coriolis vector
-        return M, C
+        # temp1 = transpose(Matrix([[K_num]]).jacobian(qd_m))
+        # M = temp1.jacobian(qd_m)  # .applyfunc(trigsimp)  # Mass matrix
+        # C = temp1.jacobian(self.kin.qm) * Matrix(qd_m) - transpose(Matrix([[K]]).jacobian(self.kin.qm))  # Coriolis vector
+        return Mt, Ct
 
     def jnt_vel_prof_req(self):  # as given in Umetani and Yoshida
         # cc1, cc2 = -np.pi * 5 / 180, -np.pi * 10 / 180,
@@ -598,7 +600,11 @@ if __name__ == '__main__':
     l = kin.l_num[1:]  # cutting out satellite length l0
     ang_b, b0 = kin.ang_b, kin.b0
 
-    r_s0, q0 = np.array([1., 1.0, 0]), np.array([0., np.pi/4., -np.pi/6.])
+    ang_s0 = Array([0., 0., 0.])
+    q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
+    M, C = dyn.get_dyn_para()
+    M_num = dyn.substitute(M, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
+    C_num = dyn.substitute(C, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
     # r_s, ang_s, q, qdm_numeric, t, pv_com = dyn.get_positions()
     # T_joint, T_i_i1 = kin.fwd_kin_symb_manip(kin.qm)
     # a, b, c = kin.position_vectors()
@@ -617,8 +623,19 @@ if __name__ == '__main__':
     # I = dyn.momentOfInertia_transform()
     # r_s, ang_s, q, qdm_numeric, t = dyn.get_positions()
     # kin_energy = dyn.kinetic_energy()
-    M, C = dyn.get_dyn_par_num(m=m, l=l, I=I, ang_s0=[0, 0, 0], q0=np.array([0., np.pi/4., -np.pi/6.]))
-    print('M = :', M, '######\nC =:', C)
+
+    # with open('corio.pickle', 'wb') as outf:
+    #     outf.write(pickle.dumps(C))
+    # Mt, Ct = dyn.get_dyn_para_num(m=m, l=l, I=I, ang_s0=np.array([0.1, 0.1, 0.1]), q0=np.array([0.1, np.pi/4., -np.pi/6.]))
+    # file = open('MassMatrix_Mt.txt', 'w')
+    # file.write(str(M))
+    # file.close()
+    #
+    # file = open('Coriolis_Ct.txt', 'w')
+    # file.write(str(C))
+    # file.close()
+
+    # print('M = :', M, '######\nC =:', C)
     # M, C, G = dyn.get_dyn_para(kin.q, kin.qd)  # Symbolic dynamic parameters
     # M, C, G = dyn.dyn_para_numeric(lp, qp, q_dot)  # Numeric values dynamic parameters
-    print('hi')
+    print(C_num[0])
