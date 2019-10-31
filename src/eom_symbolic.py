@@ -409,7 +409,7 @@ class dynamics():
                 parm = msubs(parm, {self.kin.qm[i]: q0[i]})
         if isinstance(dq, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             for i in range(len(dq)):
-                parm = msubs(parm, {self.kin.qdm[i]: qd[i]})
+                parm = msubs(parm, {self.kin.qdm[i]: dq[i]})
         if isinstance(b, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             parm = msubs(parm, {self.kin.b0x: b[0], self.kin.b0y: b[1], self.kin.b0z: b[2]})
         if isinstance(ang_s0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
@@ -422,14 +422,25 @@ class dynamics():
         #     parm = msubs(ang_b0, {self.kin.ang_xb: ang_b0[0], self.kin.ang_yb: ang_b0[1], self.kin.ang_zb: ang_b0[2]})
         return parm.evalf()
 
-    def ang_moment_sparsing(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None,):
+    def ang_moment_sparsing(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, numeric=True):
         L = self.ang_momentum_conservation()
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
-        L_num = self.substitute(L, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
-        Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
-        Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
+        if numeric:
+            L_num = self.substitute(L, m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0)
+            Ls, Lm = L_num.jacobian(qd_s), L_num.jacobian(qd_m)
+            Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
+        else:
+            # L_sym = self.substitute(L, m=m, l=l, I=I,)
+            Ls, Lm = L.jacobian(qd_s), L.jacobian(qd_m)
         return Ls, Lm
+
+    def spacecraft_acceleration(self, m=None, l=None, I=None):  # wont work since there is symbolic inverse
+        t = Symbol('t')
+        Ls, Lm = self.ang_moment_sparsing(m=m, l=l, I=I, numeric=False)
+        temp = -1 * Ls.inv() @ Lm
+        deriv = diff(temp, t)
+        return deriv
 
     def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, qdm=None):
         Ls, Lm = self.ang_moment_sparsing(m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None,)
@@ -606,10 +617,15 @@ if __name__ == '__main__':
     m, I = dyn.mass, dyn.I_num
     l = kin.l_num[1:]  # cutting out satellite length l0
     ang_b, b0 = kin.ang_b, kin.b0
-
+    t = Symbol('t')
     ang_s0 = Array([0., 0., 0.])
     q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
-    M, C = dyn.get_dyn_para()
+    Ls, Lm = dyn.ang_moment_sparsing(numeric=False)
+    print('found Ls, Lm')
+    Ls_d, Lm_d = diff(Ls, t), diff(Lm, t)
+    print('found Ls_d, Lm_d')
+    # deriv = dyn.spacecraft_acceleration(m=m, l=l, I=I)
+
     # M_num = dyn.substitute(M, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
     # C_num = dyn.substitute(C, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
 
@@ -622,14 +638,38 @@ if __name__ == '__main__':
     omega_s = [alpha_d, beta_d, gamma_d]
     theta = [theta_1, theta_2, theta_3]
     theta_d = [theta_1d, theta_2d, theta_3d]
-    Mt = dyn.substitute(M, m=m, l=l, I=I, ang_s0=ang_s, q0=theta)
-    Ct = dyn.substitute(C, m=m, l=l, I=I, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
 
-    # with open('MassMat.pickle', 'wb') as outM:
-    #     outM.write(pickle.dumps(Mt))
-    #
-    # with open('Corioli.pickle', 'wb') as outC:
-    #     outC.write(pickle.dumps(Ct))
+    Ls_t = dyn.substitute(Ls, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
+    print('found Ls_t')
+    Lm_t = dyn.substitute(Lm, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
+    print('found Lm_t')
+    Ls_dt = dyn.substitute(Ls_d, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
+    print('found Ls_dt')
+    Lm_dt = dyn.substitute(Lm_d, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
+    print('found Lm_dt')
+
+    with open('Ls.pickle', 'wb') as Lsw:
+        Lsw.write(pickle.dumps(Ls_t))
+    with open('Lm.pickle', 'wb') as Lmw:
+        Lmw.write(pickle.dumps(Lm_t))
+    with open('Ls_d.pickle', 'wb') as Lsdw:
+        Lsdw.write(pickle.dumps(Ls_dt))
+    with open('Lm_d.pickle', 'wb') as Lmdw:
+        Lmdw.write(pickle.dumps(Lm_dt))
+
+    M, C = dyn.get_dyn_para()
+    print('found M, C')
+    Mt = dyn.substitute(M, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
+    print('found Mt')
+    Ct = dyn.substitute(C, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
+    print('found Ct')
+
+    with open('MassMat_sym.pickle', 'wb') as outM:
+        outM.write(pickle.dumps(Mt))
+
+    with open('Corioli_sym.pickle', 'wb') as outC:
+        outC.write(pickle.dumps(Ct))
+    print('done')
     # r_s, ang_s, q, qdm_numeric, t, pv_com = dyn.get_positions()
     # T_joint, T_i_i1 = kin.fwd_kin_symb_manip(kin.qm)
     # a, b, c = kin.position_vectors()

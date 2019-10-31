@@ -2,6 +2,7 @@ animation/
 MPC_theory/
 deep_learning/
 .ipynb_checkpoints/
+pympc/
 .idea/
 *.pyc
 *.xml
