@@ -9,3 +9,15 @@ pympc/
 *.aux
 *.log
 *.gz
+Corioli.pickle
+Coriolis.txt
+CoriolisT.txt
+MPC_theory/
+MassMat.pickle
+MassMatrix.txt
+MassMatrixT.txt
+test.py
+pydy_test.py
+overtaking.py
+ffmpc.py
+

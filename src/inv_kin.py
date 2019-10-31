@@ -193,7 +193,7 @@ if __name__ == '__main__':
 
     f1 = int(input('Enter 1: for optimized result 2: analytical'))
     if f1 == 1:
-        A, Q = IK.call_optimize(target_loc, ang_s0, q0)  # optimization method
+        A, Q = IK.call_optimize(target_loc, ang_s0, q0)  # optimization method A = spacecraft angles and Q = joint angles
         # z = np.zeros(X.shape[1])
         # ang_s, q = np.vstack((z, z, X[0, :])), X[1:, :]
         # A, Q = ang_s, q
@@ -248,6 +248,23 @@ if __name__ == '__main__':
         points = IK.path(target_loc, np.squeeze(q0))
 
         IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax)
-    print('hi')
 
+    end_eff_pos = np.zeros((3, q.shape[1]))
+    for i in range(q.shape[1]):
+        end_eff_pos[:, i] = IK.manip_eef_pos_num(ang_s[:, i], q[:, i])
+
+    import pickle
+    # writing to file
+    with open('joint_angles.pickle', 'wb') as jq:
+        jq.write(pickle.dumps(q))
+    with open('spacecraft_angles.pickle', 'wb') as sq:
+        sq.write(pickle.dumps(ang_s))
+
+    with open('end_eff_cart_coord.pickle', 'wb') as eef:
+        eef.write(pickle.dumps(end_eff_pos))
+
+    # reading file
+    # with open('joint_angles.pickle', 'rb') as LmdR:
+    #     jjq = pickle.loads(LmdR.read())
+    print('hi')
     plt.show()
