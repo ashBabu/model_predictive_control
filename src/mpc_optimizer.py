@@ -217,7 +217,7 @@ class mpc_opt():
                     'fun': self.constraints,
                     'args': (x0, t)}
         U = opt.minimize(self.cost_function, u0, args=(x0, t), method='SLSQP', jac=self.cost_gradient,
-                         options={'maxiter': 200, 'disp': True}, constraints=con_ineq)
+                         options={'maxiter': 200, 'disp': True},constraints=con_ineq)
         U = U.x
         return U
 
