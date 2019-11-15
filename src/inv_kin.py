@@ -185,13 +185,13 @@ class InverseKinematics():
 if __name__ == '__main__':
     nDoF = 3
     IK = InverseKinematics(nDoF, robot='3DoF')
-    target_loc = np.array([1.0, -2.0, 0.0])
-    q0 = Array([[0.], [np.pi / 2], [-0.0]])
+    target_loc = np.array([-2.0, 2.0, 0.0])
+    q0 = Array([[0.], [5*np.pi / 4], [np.pi/2]])
     # q0 = Array([[0.], [np.pi / 2.5], [-0.03]])
     ang_s0 = IK.kin.ang_s0
     r_s0 = IK.spacecraft_com_num(ang_s0, q0)
 
-    f1 = int(input('Enter 1: for optimized result 2: analytical'))
+    f1 = 1  # int(input('Enter 1: for optimized result 2: analytical'))
     if f1 == 1:
         A, Q = IK.call_optimize(target_loc, ang_s0, q0)  # optimization method A = spacecraft angles and Q = joint angles
         # z = np.zeros(X.shape[1])
@@ -255,13 +255,13 @@ if __name__ == '__main__':
 
     import pickle
     # writing to file
-    with open('joint_angles.pickle', 'wb') as jq:
-        jq.write(pickle.dumps(q))
-    with open('spacecraft_angles.pickle', 'wb') as sq:
-        sq.write(pickle.dumps(ang_s))
-
-    with open('end_eff_cart_coord.pickle', 'wb') as eef:
-        eef.write(pickle.dumps(end_eff_pos))
+    # with open('joint_angles.pickle', 'wb') as jq:
+    #     jq.write(pickle.dumps(q))
+    # with open('spacecraft_angles.pickle', 'wb') as sq:
+    #     sq.write(pickle.dumps(ang_s))
+    #
+    # with open('end_eff_cart_coord.pickle', 'wb') as eef:
+    #     eef.write(pickle.dumps(end_eff_pos))
 
     # reading file
     # with open('joint_angles.pickle', 'rb') as LmdR:

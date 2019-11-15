@@ -3,9 +3,9 @@ from sympy import *
 from sympy.physics.mechanics import *
 from sympy.tensor.array import Array
 import matplotlib.pyplot as plt
-from mpl_toolkits import mplot3d
+# from mpl_toolkits import mplot3d
 np.set_printoptions(precision=4)
-init_printing()
+# init_printing()
 import pickle
 
 
@@ -443,7 +443,7 @@ class dynamics():
         return deriv
 
     def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None, qdm=None):
-        Ls, Lm = self.ang_moment_sparsing(m=None, l=None, I=None, b=None, ang_b0=None, ang_s0=None, q0=None,)
+        Ls, Lm = self.ang_moment_sparsing(m=m, l=l, I=I, b=b, ang_b0=ang_b0, ang_s0=ang_s0, q0=q0,)
         shp = qdm.shape[1]
         omega_s = np.zeros((3, shp))
         for i in range(shp):

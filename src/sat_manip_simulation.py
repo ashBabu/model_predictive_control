@@ -5,6 +5,7 @@ from dh_plotter import DH_plotter
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits import mplot3d
 np.set_printoptions(precision=3)
 
 
@@ -75,7 +76,7 @@ class Simulation(object):
         if not ax:
             fig = plt.figure()
             ax = fig.gca(projection='3d')
-            ax.set_aspect('equal')
+            # ax.set_aspect('equal')
         for i in range(rot_ang.shape[1]):
             temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
             qi = q[:, i]
