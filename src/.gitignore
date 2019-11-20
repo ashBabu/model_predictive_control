@@ -1,5 +1,6 @@
 animation/
 MPC_theory/
+trajectory/
 deep_learning/
 .ipynb_checkpoints/
 pympc/
