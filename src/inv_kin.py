@@ -185,7 +185,8 @@ class InverseKinematics():
 if __name__ == '__main__':
     nDoF = 3
     IK = InverseKinematics(nDoF, robot='3DoF')
-    target_loc = np.array([-2.0, 2.0, 0.0])
+    asd = '20'
+    target_loc = np.array([-3., 0.75, 0.25])
     q0 = Array([[0.], [5*np.pi / 4], [np.pi/2]])
     # q0 = Array([[0.], [np.pi / 2.5], [-0.03]])
     ang_s0 = IK.kin.ang_s0
@@ -255,13 +256,14 @@ if __name__ == '__main__':
 
     import pickle
     # writing to file
-    # with open('joint_angles.pickle', 'wb') as jq:
-    #     jq.write(pickle.dumps(q))
-    # with open('spacecraft_angles.pickle', 'wb') as sq:
-    #     sq.write(pickle.dumps(ang_s))
-    #
-    # with open('end_eff_cart_coord.pickle', 'wb') as eef:
-    #     eef.write(pickle.dumps(end_eff_pos))
+    file_path = '/home/ar0058/Ash/repo/model_predictive_control/src/trajectory/'
+    file_name_ja, file_name_sa, file_name_ee = 'joint_angles', 'spacecraft_angles', 'end_eff_cart_coord'
+    with open('%s%s%s.pickle' %(file_path, file_name_ja, asd), 'wb') as jq:
+        jq.write(pickle.dumps(q))
+    with open('%s%s%s.pickle' %(file_path, file_name_sa, asd), 'wb') as sq:
+        sq.write(pickle.dumps(ang_s))
+    with open('%s%s%s.pickle' %(file_path, file_name_ee, asd), 'wb') as eef:
+        eef.write(pickle.dumps(end_eff_pos))
 
     # reading file
     # with open('joint_angles.pickle', 'rb') as LmdR:
