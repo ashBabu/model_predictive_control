@@ -1,5 +1,7 @@
 # external imports
 import numpy as np
+from scipy.linalg import expm
+
 
 def nullspace_basis(A):
     """
@@ -24,6 +26,7 @@ def nullspace_basis(A):
     Z = V[:,rank:]
 
     return Z
+
 
 def linearly_independent_rows(A, tol=1.e-6):
     """
@@ -50,6 +53,7 @@ def linearly_independent_rows(A, tol=1.e-6):
     independent_rows = list(np.where(R_diag > tol)[0])
 
     return sorted(independent_rows)
+
 
 def plane_through_points(points):
     """
@@ -91,6 +95,7 @@ def plane_through_points(points):
 
     return a, d
 
+
 def same_rows(A, B, normalize=True):
     """
     Checks if two matrices contain the same rows.
@@ -130,6 +135,7 @@ def same_rows(A, B, normalize=True):
 
     return True
 
+
 def same_vectors(v_list, u_list):
     """
     Tests that two lists of array contain the same elements.
@@ -157,3 +163,104 @@ def same_vectors(v_list, u_list):
     U = np.vstack(u_list)
 
     return same_rows(V, U, False)
+
+
+def check_affine_system(A, B, c=None, h=None):
+    """
+    Check that the matrices A, B, and c of an affine system have compatible sizes.
+
+    Arguments
+    ----------
+    A : numpy.ndarray
+        State transition matrix.
+    B : numpy.ndarray
+        Input to state map.
+    c : numpy.ndarray
+        Offset term.
+    h : float
+        Discretization time step.
+    """
+
+    # A square matrix
+    if A.shape[0] != A.shape[1]:
+        raise ValueError('A must be a square matrix.')
+
+    # equal number of rows for A and B
+    if A.shape[0] != B.shape[0]:
+        raise ValueError('A and B must have the same number of rows.')
+
+    # check c
+    if c is not None:
+        if c.ndim > 1:
+            raise ValueError('c must be a 1-dimensional array.')
+        if A.shape[0] != c.size:
+            raise ValueError('A and c must have the same number of rows.')
+
+    # check h
+    if h is not None:
+        if h < 0:
+            raise ValueError('the time step h must be positive.')
+
+
+def zero_order_hold(A, B, c, h):
+    """
+    Assuming piecewise constant inputs, it returns the exact discretization of the affine system dx/dt = A x + B u + c.
+
+    Math
+    ----------
+    Solving the differential equation, we have
+    x(h) = exp(A h) x(0) + int_0^h exp(A (h - t)) (B u(t) + c) dt.
+    Being u(t) = u(0) constant between 0 and h we have
+    x(h) = A_d x(0) + B_d u(0) + c_d,
+    where
+    A_d := exp(A h),
+    B_d := int_0^h exp(A (h - t)) dt B,
+    c_d = B_d := int_0^h exp(A (h - t)) dt c.
+    I holds
+         |A B c|      |A_d B_d c_d|
+    exp (|0 0 0| h) = |0   I   0  |
+         |0 0 0|      |0   0   1  |
+    where both the matrices are square.
+    Proof: apply the definition of exponential and note that int_0^h exp(A (h - t)) dt = sum_{k=1}^inf A^(k-1) h^k/k!.
+
+    Arguments
+    ----------
+    A : numpy.ndarray
+        State transition matrix.
+    B : numpy.ndarray
+        Input to state map.
+    c : numpy.ndarray
+        Offset term.
+    h : float
+        Discretization time step.
+
+    Returns
+    ----------
+    A_d : numpy.ndarray
+        Discrete-time state transition matrix.
+    B_d : numpy.ndarray
+        Discrete-time input to state map.
+    c_d : numpy.ndarray
+        Discrete-time offset term.
+    """
+
+    # check inputs
+    check_affine_system(A, B, c, h)
+
+    # system dimensions
+    n_x = np.shape(A)[0]
+    n_u = np.shape(B)[1]
+
+    # zero order hold
+    M_c = np.vstack((
+        np.column_stack((A, B, c)),
+        np.zeros((n_u + 1, n_x + n_u + 1))
+    ))
+    M_d = expm(M_c * h)
+
+    # discrete time dynamics
+    A_d = M_d[:n_x, :n_x]
+    B_d = M_d[:n_x, n_x:n_x + n_u]
+    c_d = M_d[:n_x, n_x + n_u]
+
+    return A_d, B_d, c_d

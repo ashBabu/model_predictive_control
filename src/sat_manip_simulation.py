@@ -77,15 +77,28 @@ class Simulation(object):
             fig = plt.figure()
             ax = fig.gca(projection='3d')
             # ax.set_aspect('equal')
-        for i in range(rot_ang.shape[1]):
-            temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
-            qi = q[:, i]
-            plt.cla()
-            if isinstance(pv_com, (list, tuple, np.ndarray)):
-                ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
-            for p, s, c in zip(temp, size, color):
-                self.satellite_namipulator(rot_ang[:, i], qi,  pos=p, size=s, ax=ax, color=c)
-            plt.pause(0.05)
+            if len(rot_ang) > 3:
+                n = len(rot_ang)
+                for i in range(n):
+                    temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
+                    qi = q[:, i]
+                    plt.cla()
+                    if isinstance(pv_com, (list, tuple, np.ndarray)):
+                        ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
+                    for p, s, c in zip(temp, size, color):
+                        self.satellite_namipulator(rot_ang[:, i], qi, pos=p, size=s, ax=ax, color=c)
+                    plt.pause(0.05)
+            else:
+                # n = len(rot_ang)
+                # for i in range(n):
+                temp = [(pos[0][0], pos[1][0], pos[2][0])]
+                plt.cla()
+                # if isinstance(pv_com, (list, tuple, np.ndarray)):
+                #     ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
+                for p, s, c in zip(temp, size, color):
+                    self.satellite_namipulator(rot_ang, q, pos=p, size=s, ax=ax, color=c)
+                # plt.pause(0.05)
+
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
             # print('hi')
 
