@@ -4,6 +4,7 @@ trajectory/
 deep_learning/
 .ipynb_checkpoints/
 pympc/
+MPC_theory/
 .idea/
 *.pyc
 *.xml
@@ -13,7 +14,6 @@ pympc/
 Corioli.pickle
 Coriolis.txt
 CoriolisT.txt
-MPC_theory/
 MassMat.pickle
 MassMatrix.txt
 MassMatrixT.txt
