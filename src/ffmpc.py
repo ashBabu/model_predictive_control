@@ -11,10 +11,10 @@ import pickle
 # from Ls_derivative.wrapper_module_4 import autofunc_c as Ls_d
 # from Lm_derivative.wrapper_module_5 import autofunc_c as Lm_d
 
-from pympc.geometry.polyhedron import Polyhedron
-from pympc.dynamics.discrete_time_systems import LinearSystem
-from pympc.control.controllers import ModelPredictiveController
-from pympc.plot import plot_input_sequence, plot_state_trajectory, plot_state_space_trajectory
+# from pympc.geometry.polyhedron import Polyhedron
+# from pympc.dynamics.discrete_time_systems import LinearSystem
+# from pympc.control.controllers import ModelPredictiveController
+# from pympc.plot import plot_input_sequence, plot_state_trajectory, plot_state_space_trajectory
 
 
 def mass_matrix(spacecraft_angles=None, joint_angles=None, Is=None, I_link=None, mass=None):
@@ -140,7 +140,7 @@ A = np.vstack((np.hstack((zeros, identity)), np.hstack((zeros, zeros))))
 B = np.vstack((zeros, identity))
 h = .1
 method = 'zero_order_hold'
-S = LinearSystem.from_continuous(A, B, h, method)
+# S = LinearSystem.from_continuous(A, B, h, method)
 N = 10  # prediction horizon
 #
 
@@ -161,6 +161,7 @@ x_max = 100 * np.ones(n_states)
 # eef_vel = np.vstack((0.2*np.ones(eef_pos.shape[1]), 0.2*np.ones(eef_pos.shape[1]), np.zeros(eef_pos.shape[1])))
 # x_ref = np.vstack((eef_pos, eef_vel))
 x_ref = joint_angles
+x_ref = np.vstack((x_ref, np.zeros((x_ref.shape[0], x_ref.shape[1]))))
 
 Nsim = x_ref.shape[1]
 # Nsim = 50
@@ -186,7 +187,8 @@ P1 = Q1
 
 mpc = mpc_opt(Q=Q1, P=P1, R=R1, A=A_d, B=B_d, C=C, time=np.linspace(0, 10, Nsim), ul=u_min.reshape((len(u_min), 1)),
               uh=u_max.reshape((len(u_max), 1)), xl=x_min.reshape((len(x_min), 1)),
-              xh=x_max.reshape((len(x_max), 1)), N=N, ref_traj=C @ x_ref)
+              xh=x_max.reshape((len(x_max), 1)), N=N,
+              ref_traj=C @ x_ref)
 
 
 u0 = np.array([[1], [1], [1]])
