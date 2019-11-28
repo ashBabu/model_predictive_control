@@ -59,6 +59,7 @@ if __name__ == '__main__':
     target = np.array([-3., 0.75, 0.25])
     ang_s0, q0 = np.array([0., 0., 0.]), np.array([0., 5*np.pi / 4, np.pi/2]),  # np.array([[0.], [5*np.pi / 4], [np.pi/2]])
     traj_learn = TrajectoryLearning(time, target, ang_s0, q0, nDoF=nDoF, nBf=nBf)
+    eef_curr_position = traj_learn.spacecraft_inv_kin.manip_eef_pos_num(ang_s0, q0)
     rs0 = traj_learn.spacecraft_inv_kin.spacecraft_com_num(ang_s0, q0)
     size = traj_learn.spacecraft_inv_kin.kin.size
 
@@ -71,5 +72,8 @@ if __name__ == '__main__':
         eef_pos_list.append(eef_pos)
 
     traj_learn.spacecraft_sim.call_plot(rs0, size, 'red', ang_s0, q0)
-    plt.show()
+
+    for i in range(len(eef_pos_list)):
+        plt.plot(eef_pos_list[i][0], eef_pos_list[i][1], eef_pos_list[i][2])
+    # plt.show()
     print('hi')
