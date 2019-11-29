@@ -4,17 +4,17 @@ from sympy import *
 import matplotlib.pyplot as plt
 import pickle
 
-# from MassMatrix.wrapper_module_0 import autofunc_c as MassMatrix
+from MassMatrix.wrapper_module_0 import autofunc_c as MassMatrix
 # from CoriolisVector.wrapper_module_1 import autofunc_c as CoriolisVector
 # from Ls.wrapper_module_2 import autofunc_c as Ls
 # from Lm.wrapper_module_3 import autofunc_c as Lm
 # from Ls_derivative.wrapper_module_4 import autofunc_c as Ls_d
 # from Lm_derivative.wrapper_module_5 import autofunc_c as Lm_d
 
-# from pympc.geometry.polyhedron import Polyhedron
-# from pympc.dynamics.discrete_time_systems import LinearSystem
-# from pympc.control.controllers import ModelPredictiveController
-# from pympc.plot import plot_input_sequence, plot_state_trajectory, plot_state_space_trajectory
+from pympc.geometry.polyhedron import Polyhedron
+from pympc.dynamics.discrete_time_systems import LinearSystem
+from pympc.control.controllers import ModelPredictiveController
+from pympc.plot import plot_input_sequence, plot_state_trajectory, plot_state_space_trajectory
 
 
 def mass_matrix(spacecraft_angles=None, joint_angles=None, Is=None, I_link=None, mass=None):
