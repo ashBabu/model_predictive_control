@@ -4,7 +4,7 @@ from sympy import *
 import matplotlib.pyplot as plt
 import pickle
 
-from MassMatrix.wrapper_module_0 import autofunc_c as MassMatrix
+# from MassMatrix.wrapper_module_0 import autofunc_c as MassMatrix
 # from CoriolisVector.wrapper_module_1 import autofunc_c as CoriolisVector
 # from Ls.wrapper_module_2 import autofunc_c as Ls
 # from Lm.wrapper_module_3 import autofunc_c as Lm

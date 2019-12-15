@@ -77,8 +77,8 @@ class Simulation(object):
             fig = plt.figure()
             ax = fig.gca(projection='3d')
             # ax.set_aspect('equal')
-            if len(rot_ang) > 3:
-                n = len(rot_ang)
+            if rot_ang.shape[1] > 3:
+                n = rot_ang.shape[1]
                 for i in range(n):
                     temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
                     qi = q[:, i]
@@ -133,6 +133,101 @@ class Simulation(object):
         plt.show()
 
 
+class Background(Simulation):
+
+    def __init__(self):
+        super().__init__()
+        print(self.nDoF)
+
+    def earth(self):
+        from mayavi import mlab
+
+        # Display continents outline, using the VTK Builtin surface 'Earth'
+        from mayavi.sources.builtin_surface import BuiltinSurface
+        mlab.figure(1, bgcolor=(0., 0., 0.), fgcolor=(0, 0, 0),
+                    size=(400, 400))
+        mlab.clf()
+        continents_src = BuiltinSurface(source='earth', name='Continents')
+        # The on_ratio of the Earth source controls the level of detail of the
+        # continents outline.
+        continents_src.data_source.on_ratio = 2
+        continents = mlab.pipeline.surface(continents_src, color=(0, 0, 0))
+
+        ###############################################################################
+        # Display a semi-transparent sphere, for the surface of the Earth
+
+        # We use a sphere Glyph, throught the points3d mlab function, rather than
+        # building the mesh ourselves, because it gives a better transparent
+        # rendering.
+        xc, yc, zc = 1, 0, 0
+        center = np.array([xc, yc, zc])
+        sphere = mlab.points3d(xc, yc, zc, scale_mode='none',
+                               scale_factor=2,
+                               color=(0., 0.77, 0.93),
+                               resolution=50,
+                               opacity=0.7,
+                               name='Earth')
+
+        # These parameters, as well as the color, where tweaked through the GUI,
+        # with the record mode to produce lines of code usable in a script.
+        sphere.actor.property.specular = 0.45
+        sphere.actor.property.specular_power = 5
+        # Backface culling is necessary for more a beautiful transparent rendering.
+        sphere.actor.property.backface_culling = True
+
+        ###############################################################################
+        # Plot the equator and the tropiques
+        theta = np.linspace(0, 2 * np.pi, 100)
+        for angle in (- np.pi / 6, 0, np.pi / 6):
+            x = xc + np.cos(theta) * np.cos(angle)
+            y = yc + np.sin(theta) * np.cos(angle)
+            z = zc + np.ones_like(theta) * np.sin(angle)
+
+            mlab.plot3d(x, y, z, color=(1, 1, 1),
+                        opacity=0.2, tube_radius=None)
+        mlab.points3d(xc, yc, zc, color=(1,1,1), scale_factor=.125)
+        mlab.view(63.4, 73.8, 4, [-0.05, 0, 0])
+        mlab.show()
+
+    def sim(self, ax=None):
+        r_s, ang_s, q, q_dot, t, pv_com = self.dyn.get_positions()
+        size = self.kin.size
+        color = ["salmon", "limegreen", "crimson", ]
+
+        # pos, size, color, rot_ang, q, pv_com = None,
+        #
+        # r_s, ang_s, q, q_dot, t, pv_com = self.dyn.get_positions()
+        # self.call_plot(r_s, sizes, colors, ang_s, q, )  # Animation
+
+        rot_ang, pos = ang_s, r_s,
+        if not ax:
+            fig = plt.figure()
+            ax = fig.gca(projection='3d')
+            # ax.set_aspect('equal')
+        if rot_ang.shape[1] > 3:
+            n = rot_ang.shape[1]
+            for i in range(n):
+                temp = [(pos[:, i][0], pos[:, i][1], pos[:, i][2])]
+                qi = q[:, i]
+
+                plt.cla()
+                if isinstance(pv_com, (list, tuple, np.ndarray)):
+                    ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
+                for p, s, c in zip(temp, size, color):
+                    self.satellite_namipulator(rot_ang[:, i], qi, pos=p, size=s, ax=ax, color=c)
+                plt.pause(0.05)
+        else:
+            # n = len(rot_ang)
+            # for i in range(n):
+            temp = [(pos[0][0], pos[1][0], pos[2][0])]
+            plt.cla()
+            # if isinstance(pv_com, (list, tuple, np.ndarray)):
+            #     ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
+            for p, s, c in zip(temp, size, color):
+                self.satellite_namipulator(rot_ang, q, pos=p, size=s, ax=ax, color=c)
+
 if __name__ == '__main__':
-    sim = Simulation()
-    sim.simulation()
+    # sim = Simulation()
+    # sim.simulation()
+    bgd = Background()
+    bgd.earth()
