@@ -8,7 +8,7 @@ np.set_printoptions(precision=2)
 
 class DH_plotter():
 
-    def __init__(self, nDoF, robot='Franka'):
+    def __init__(self, nDoF=3, robot='3DoF'):
         self.nDoF = nDoF
         self.kin = kinematics()
         if robot == 'Franka':
@@ -17,7 +17,7 @@ class DH_plotter():
             self.d = np.array([0.333, 0, 0.316, 0, 0.384, 0, 0, 0.107])
             self.alpha = np.array([0, -np.pi/2, np.pi/2, np.pi/2, -np.pi/2, np.pi/2, np.pi/2, 0])
             self.eef_dist = 0.0
-        else:  # 3DOF robot given in yoshida and umeneti: resolved motion rate control of space manipulators
+        elif robot == '3DoF':  # 3DOF robot given in yoshida and umeneti: resolved motion rate control of space manipulators
             self.alpha = np.array([-np.pi / 2, np.pi / 2, 0.])
             self.a = self.kin.a
             self.d = self.kin.d

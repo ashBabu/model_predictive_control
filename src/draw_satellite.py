@@ -8,8 +8,9 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 class SatellitePlotter(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, nDoF=3, robot='3DoF'):
+        self.nDoF = nDoF
+        self.robot = robot
 
     def cuboid_data(self, o, size=(1, 1, 1)):  # o is the centre/position of the cuboid
         l, w, h = size
@@ -68,11 +69,11 @@ class SatellitePlotter(object):
         px, py, pz = p[0], p[1], p[2]
         l, b, h = size[0], size[1], size[2]
         xx = np.array([px+l/2, px-l/2, px-l/2, px+l/2, px+l/2, px+l/2, px-l/2, px-l/2,
-                       px+l/2, px+l/2, px-l/2, px-l/2, px-l/2, px-l/2, px+l/2, px+l/2, px-l/2, px+l/2, px-l/2])
+                       px+l/2, px+l/2, px-l/2, px-l/2, px-l/2, px-l/2, px+l/2, px+l/2, ])  #px-l/2, px+l/2, px-l/2])
         yy = np.array([py+b/2, py+b/2, py-b/2, py-b/2, py+b/2, py+b/2, py+b/2, py-b/2,
-                       py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py-b/2, py-b/2, py+b/2, py+b/2, py-b/2])
+                       py-b/2, py+b/2, py+b/2, py+b/2, py-b/2, py-b/2, py-b/2, py-b/2, ])  #py+b/2, py+b/2, py-b/2])
         zz = np.array([pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz+h/2,
-                       pz+h/2, pz+h/2, pz+h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2])
+                       pz+h/2, pz+h/2, pz+h/2, pz-h/2, pz-h/2, pz+h/2, pz+h/2, pz-h/2, ])  #pz+h/2, pz+h/2, pz-h/2])
         return xx, yy, zz
 
     def plt_cube(self, p, size):
