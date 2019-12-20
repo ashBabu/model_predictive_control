@@ -151,7 +151,6 @@ class MayaviRendering:
         self.DHPlot = DH_plotter(nDoF=nDoF, robot=robot)
         self.image_file = image_file
 
-
     def manual_sphere(self, image_file):
         # caveat 1: flip the input image along its first axis
         img = plt.imread(image_file)  # shape (N,M,3), flip along first dim
@@ -265,9 +264,10 @@ class MayaviRendering:
         return T_combined, x, y, z
 
     @mlab.animate(delay=100)
-    def anim(self, rs=None, angs=None, q=None, fig_save=False):
+    def anim(self, rs=None, angs=None, q=None, fig_save=False, reverse=False):
         size = self.kin.size[0]
-        rs, angs, q = np.hstack((rs, np.fliplr(rs))), np.hstack((angs, np.fliplr(angs))), np.hstack((q, np.fliplr(q)))
+        if reverse:
+            rs, angs, q = np.hstack((rs, np.fliplr(rs))), np.hstack((angs, np.fliplr(angs))), np.hstack((q, np.fliplr(q)))
         mlab.figure(size=(1000, 800), bgcolor=(0., 0., 0.), )
         self.manual_sphere(self.image_file)
         p = [(rs[:, 0][0], rs[:, 0][1], rs[:, 0][2])][0]
@@ -344,5 +344,5 @@ if __name__ == '__main__':
     elif i == 2:
         MR = MayaviRendering()
         MR.get_plots(r_s, ang_s, q, q_dot, t)
-        MR.anim(rs=r_s, angs=ang_s, q=q, fig_save=False)
+        MR.anim(rs=r_s, angs=ang_s, q=q, fig_save=False, reverse=True)
         mlab.show()
