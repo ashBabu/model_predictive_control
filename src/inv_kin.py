@@ -3,9 +3,12 @@ import scipy.optimize as opt
 import matplotlib.pyplot as plt
 from eom_symbolic import dynamics, kinematics
 from sympy import *
-from fwd_kin import Simulation
+from fwd_kin import Simulation, MayaviRendering
+from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=3)
+from mayavi import mlab
+from tvtk.api import tvtk
 
 save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/'
 
@@ -203,6 +206,27 @@ class InverseKinematics:
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inv_kinematics_direct/%02d.png" % i)
             # print('hi')
 
+    def get_plts(self, A, Q, target_loc, q0, r_s):
+        plt.figure()
+        plt.plot(A[0, :], label='satellite_x_rotation')
+        plt.plot(A[1, :], label='satellite_y_rotation')
+        plt.plot(A[2, :], label='satellite_z_rotation')
+        plt.legend()
+
+        plt.figure()
+        plt.plot(Q[0, :], label='q1')
+        plt.plot(Q[1, :], label='q2')
+        plt.plot(Q[2, :], label='q3')
+        plt.legend()
+
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+
+        ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
+        points = self.path(target_loc, np.squeeze(q0))
+        # np.save(save_dir+'data/ref_path_xyz.npy', points, allow_pickle=True)
+        self.animation(r_s, self.kin.size, 'green', A, Q, points, ax=ax, fig=fig)
+
 
 if __name__ == '__main__':
     nDoF = 3
@@ -230,57 +254,21 @@ if __name__ == '__main__':
     q = np.c_[q0, Q]
     r_s = np.c_[r_s0, r_s]
     ang_s = np.c_[ang_s0, A]
-    np.save(save_dir+'data/joint_angs_inv_kin.npy', q, allow_pickle=True),
-    np.save(save_dir+'data/spacecraft_com_inv_kin.npy', r_s, allow_pickle=True),
-    np.save(save_dir+'data/spacecraft_angs_inv_kin.npy', ang_s, allow_pickle=True),
-    np.save(save_dir+'data/target_loc_inv_kin.npy', target_loc, allow_pickle=True)
+    # np.save(save_dir+'data/joint_angs_inv_kin.npy', q, allow_pickle=True),
+    # np.save(save_dir+'data/spacecraft_com_inv_kin.npy', r_s, allow_pickle=True),
+    # np.save(save_dir+'data/spacecraft_angs_inv_kin.npy', ang_s, allow_pickle=True),
+    # np.save(save_dir+'data/target_loc_inv_kin.npy', target_loc, allow_pickle=True)
 
     if f1 == 1:
-        plt.figure()
-        plt.plot(A[0, :], label='satellite_x_rotation')
-        plt.plot(A[1, :], label='satellite_y_rotation')
-        plt.plot(A[2, :], label='satellite_z_rotation')
-        plt.legend()
-
-        plt.figure()
-        plt.plot(Q[0, :], label='q1')
-        plt.plot(Q[1, :], label='q2')
-        plt.plot(Q[2, :], label='q3')
-        plt.legend()
-
-        fig = plt.figure()
-        ax = plt.axes(projection='3d')
-
-        ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
-        points = IK.path(target_loc, np.squeeze(q0))
-        np.save(save_dir+'data/ref_path_xyz.npy', points, allow_pickle=True)
-        IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax, fig=fig)
+        IK.get_plts(A, Q, target_loc, q0, r_s)
     else:
-        plt.figure()
-        plt.plot(A[0, :], label='satellite_x_rotation')
-        plt.plot(A[1, :], label='satellite_y_rotation')
-        plt.plot(A[2, :], label='satellite_z_rotation')
-        plt.legend()
-
-        plt.figure()
-        plt.plot(Q[0, :], label='q1')
-        plt.plot(Q[1, :], label='q2')
-        plt.plot(Q[2, :], label='q3')
-        plt.legend()
-
-        fig = plt.figure()
-        ax = plt.axes(projection='3d')
-
-        ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
-        points = IK.path(target_loc, np.squeeze(q0))
-        np.save(save_dir+'data/ref_path_xyz.npy', points, allow_pickle=True)
-        IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax, fig=fig)
+        IK.get_plts(A, Q, target_loc, q0, r_s)
 
     end_eff_pos = np.zeros((3, q.shape[1]))
     for i in range(q.shape[1]):
         end_eff_pos[:, i] = IK.manip_eef_pos_num(ang_s[:, i], q[:, i])
 
-    np.save(save_dir+'data/end_eff_xyz.npy', end_eff_pos, allow_pickle=True)
+    # np.save(save_dir+'data/end_eff_xyz.npy', end_eff_pos, allow_pickle=True)
     import pickle
     # writing to file
     # file_path = '/home/ar0058/Ash/repo/model_predictive_control/src/trajectory/'
