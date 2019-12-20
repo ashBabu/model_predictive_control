@@ -1,17 +1,16 @@
 import numpy as np
 import scipy.optimize as opt
-import time
 import matplotlib.pyplot as plt
 from eom_symbolic import dynamics, kinematics
 from sympy import *
-from sat_manip_simulation import Simulation
+from fwd_kin import Simulation
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.cbook import get_sample_data
-from matplotlib._png import read_png
 np.set_printoptions(precision=3)
 
+save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/'
 
-class InverseKinematics():
+
+class InverseKinematics:
 
     def __init__(self, nDoF, robot='3DoF'):
         self.t = Symbol('t')
@@ -55,12 +54,12 @@ class InverseKinematics():
     def path(self, eef_des_pos, q0):  # q0 is current joint angles which is used to calculate current end_eff position
         pv_eef_num = self.manip_eef_pos_num(self.ang_s0, q0)
         init_pos = np.squeeze(pv_eef_num)
-        points = self.discretize(init_pos, eef_des_pos, step_size=0.25)  # step_size is inversely proportional to vel
+        points = self.discretize(init_pos, eef_des_pos, step_size=0.15)  # step_size is inversely proportional to vel
         points = np.insert(points, 0, init_pos, axis=0)
         points = np.insert(points, len(points), eef_des_pos, axis=0)
         return points
 
-    # Method 1: works but needs refinement
+    # Method 1: works
     def jacobians(self, ang_s, q):
         omega_eef_num = self.dyn.substitute(self.omega_eef, ang_s0=ang_s, q0=q)
         Jw_s, Jw_m = omega_eef_num.jacobian(self.qd_s), omega_eef_num.jacobian(self.qd_m)  # Jv_s and Jv_m are both functions of ang_s, q_i
@@ -163,19 +162,6 @@ class InverseKinematics():
             r_eef_current = self.manip_eef_pos_num(ang_s0, q0)
         return ang_s, q
 
-    def image_draw(self, image):
-        p = '/home/ash/Ash/repo/model_predictive_control/src/'
-        fn = get_sample_data(p+image, asfileobj=False)
-        arr = read_png(fn)
-        stepX, stepY = 10. / arr.shape[0], 10. / arr.shape[1]
-
-        X1 = np.arange(-5, 5, stepX)
-        Y1 = np.arange(-5, 5, stepY)
-        X1, Y1 = np.meshgrid(X1, Y1)
-        # stride args allows to determine image quality
-        # stride = 1 work slow
-        return X1, Y1, arr
-
     def animation(self, pos, size, color, rot_ang, q, path, pv_com=None, ax=None, fig=None):
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
         if not ax:
@@ -198,15 +184,15 @@ class InverseKinematics():
 
             ax = plt.axes(projection='3d')
             # ax.set_aspect('equal')
-            fig.set_facecolor('black')
-            ax.set_facecolor('black')
-            ax.grid(False)
-            ax.w_xaxis.pane.fill = False
-            ax.w_yaxis.pane.fill = False
-            ax.w_zaxis.pane.fill = False
-            X1, Y1, arr = self.image_draw('space.png')
-            ax.plot_surface(X1, Y1, np.ones(X1.shape), rstride=1, cstride=1, facecolors=arr)
-            plt.axis('off')
+            # fig.set_facecolor('black')
+            # ax.set_facecolor('black')
+            # ax.grid(False)
+            # ax.w_xaxis.pane.fill = False
+            # ax.w_yaxis.pane.fill = False
+            # ax.w_zaxis.pane.fill = False
+            # X1, Y1, arr = self.image_draw('space.png')
+            # ax.plot_surface(X1, Y1, np.ones(X1.shape), rstride=1, cstride=1, facecolors=arr)
+            # plt.axis('off')
             if isinstance(pv_com, (list, tuple, np.ndarray)):
                 ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
             for p, s, c in zip(temp, size, color):
@@ -222,7 +208,7 @@ if __name__ == '__main__':
     nDoF = 3
     IK = InverseKinematics(nDoF, robot='3DoF')
     asd = '20'
-    target_loc = np.array([-3., 0.75, 0.25])
+    target_loc = np.array([-2.5, 3, 0.25])
     q0 = Array([[0.], [5*np.pi / 4], [np.pi/2]])
     # q0 = Array([[0.], [np.pi / 2.5], [-0.03]])
     ang_s0 = IK.kin.ang_s0
@@ -244,10 +230,12 @@ if __name__ == '__main__':
     q = np.c_[q0, Q]
     r_s = np.c_[r_s0, r_s]
     ang_s = np.c_[ang_s0, A]
+    np.save(save_dir+'data/joint_angs_inv_kin.npy', q, allow_pickle=True),
+    np.save(save_dir+'data/spacecraft_com_inv_kin.npy', r_s, allow_pickle=True),
+    np.save(save_dir+'data/spacecraft_angs_inv_kin.npy', ang_s, allow_pickle=True),
+    np.save(save_dir+'data/target_loc_inv_kin.npy', target_loc, allow_pickle=True)
 
     if f1 == 1:
-        # ang_s, q = X[0:3, :], X[3:, :]
-
         plt.figure()
         plt.plot(A[0, :], label='satellite_x_rotation')
         plt.plot(A[1, :], label='satellite_y_rotation')
@@ -265,7 +253,7 @@ if __name__ == '__main__':
 
         ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
         points = IK.path(target_loc, np.squeeze(q0))
-
+        np.save(save_dir+'data/ref_path_xyz.npy', points, allow_pickle=True)
         IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax, fig=fig)
     else:
         plt.figure()
@@ -284,15 +272,15 @@ if __name__ == '__main__':
         ax = plt.axes(projection='3d')
 
         ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
-        ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
         points = IK.path(target_loc, np.squeeze(q0))
-
+        np.save(save_dir+'data/ref_path_xyz.npy', points, allow_pickle=True)
         IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax, fig=fig)
 
     end_eff_pos = np.zeros((3, q.shape[1]))
     for i in range(q.shape[1]):
         end_eff_pos[:, i] = IK.manip_eef_pos_num(ang_s[:, i], q[:, i])
 
+    np.save(save_dir+'data/end_eff_xyz.npy', end_eff_pos, allow_pickle=True)
     import pickle
     # writing to file
     # file_path = '/home/ar0058/Ash/repo/model_predictive_control/src/trajectory/'
