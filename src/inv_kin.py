@@ -1,37 +1,42 @@
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
-from eom_symbolic import dynamics, kinematics
+from eom_symbolic import Dynamics, Kinematics
 from sympy import *
-from fwd_kin import Simulation, MayaviRendering
-from scipy.spatial.transform import Rotation as R
+from fwd_kin import ForwardKinematics, MayaviRendering
+# from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=3)
-from mayavi import mlab
-from tvtk.api import tvtk
+# from mayavi import mlab
+# from tvtk.api import tvtk
 
 save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/'
 
 
 class InverseKinematics:
 
-    def __init__(self, nDoF, robot='3DoF'):
+    def __init__(self, nDoF=3, robot='3DoF', b0=np.array([1.05, 1.05, 0])):
         self.t = Symbol('t')
         self.nDoF = nDoF
-        self.kin = kinematics(nDoF, robot)
-        self.dyn = dynamics(nDoF, robot)
-        self.sat_manip_sim = Simulation()
+        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            self.b0 = self.kin.b0
+        else:
+            self.b0 = b0
+        self.kin = Kinematics(nDoF=self.nDoF, robot=robot)
+        self.dyn = Dynamics(nDoF=self.nDoF, robot=robot)
+        self.fwd_kin = ForwardKinematics()
         self.m, self.I, self.l = self.dyn.mass, self.dyn.I_num, self.kin.l_num[1:]  # cutting out satellite length l0
-        self.ang_b0, self.b0 = self.kin.ang_b, self.kin.b0
         self.ang_s0 = self.kin.ang_s0
-        pv_com, pv_eef, _ = self.dyn.com_pos_vect()
-        self.pv_com_num = self.dyn.substitute(pv_com, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
-        self.pv_eef_num = self.dyn.substitute(pv_eef, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
-        L = self.dyn.ang_momentum_conservation()
-        self.L_num = self.dyn.substitute(L, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
-        j_omega, _, j_vel_eef = self.dyn.velocities_frm_momentum_conservation()
-        self.omega_eef = self.dyn.substitute(j_omega[:, -1], m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
-        self.vel_eef = self.dyn.substitute(j_vel_eef, m=self.m, l=self.l, I=self.I, b=self.b0, ang_b0=self.ang_b0)
+
+        self.ang_b0 = self.kin.robot_base_ang(b0=self.b0)
+        pv_com, pv_eef, _ = self.dyn.com_pos_vect(b0=self.b0)
+        self.pv_com_num = self.dyn.substitute(pv_com, m=self.m, l=self.l, I=self.I)
+        self.pv_eef_num = self.dyn.substitute(pv_eef, m=self.m, l=self.l, I=self.I)
+        L = self.dyn.ang_momentum_conservation(b0=self.b0)
+        self.L_num = self.dyn.substitute(L, m=self.m, l=self.l, I=self.I)
+        j_omega, _, j_vel_eef = self.dyn.velocities_frm_momentum_conservation(b0=self.b0)
+        self.omega_eef = self.dyn.substitute(j_omega[:, -1], m=self.m, l=self.l, I=self.I)
+        self.vel_eef = self.dyn.substitute(j_vel_eef, m=self.m, l=self.l, I=self.I)
         self.qd = self.kin.qd[3:]
         self.qd_s, self.qd_m = self.qd[0:3], self.qd[3:]
         self.lmda1, self.lmda2 = 2, 0.5  # optimization weights
@@ -165,7 +170,7 @@ class InverseKinematics:
             r_eef_current = self.manip_eef_pos_num(ang_s0, q0)
         return ang_s, q
 
-    def animation(self, pos, size, color, rot_ang, q, path, pv_com=None, ax=None, fig=None):
+    def animation(self, pos, size, color, rot_ang, q, path, pv_com=None, ax=None,):
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
         if not ax:
             fig = plt.figure()
@@ -199,7 +204,7 @@ class InverseKinematics:
             if isinstance(pv_com, (list, tuple, np.ndarray)):
                 ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
             for p, s, c in zip(temp, size, color):
-                self.sat_manip_sim.satellite_namipulator(rot_ang[:, i], qi, pos=p, size=s, ax=ax, color=c)
+                self.fwd_kin.satellite_namipulator(rot_ang[:, i], qi, pos=p, size=s, ax=ax, b0=self.b0)
                 ax.scatter(path[:, 0], path[:, 1], path[:, 2], 'r-', lw=4)
                 ax.view_init(elev=85., azim=-58)
             plt.pause(0.05)
@@ -225,12 +230,12 @@ class InverseKinematics:
         ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
         points = self.path(target_loc, np.squeeze(q0))
         # np.save(save_dir+'data/ref_path_xyz.npy', points, allow_pickle=True)
-        self.animation(r_s, self.kin.size, 'green', A, Q, points, ax=ax, fig=fig)
+        self.animation(r_s, self.kin.size, 'green', A, Q, points, ax=ax)
 
 
 if __name__ == '__main__':
-    nDoF = 3
-    IK = InverseKinematics(nDoF, robot='3DoF')
+    nDoF, b0 = 3, np.array([1.05, 0, 0])
+    IK = InverseKinematics(nDoF=nDoF, robot='3DoF', b0=b0)
     asd = '20'
     target_loc = np.array([-2.5, 3, 0.25])
     q0 = Array([[0.], [5*np.pi / 4], [np.pi/2]])

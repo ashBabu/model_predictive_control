@@ -1,7 +1,7 @@
 import numpy as np
 from sympy import *
 import matplotlib.pyplot as plt
-from eom_symbolic import kinematics
+from eom_symbolic import Kinematics
 from mpl_toolkits import mplot3d
 np.set_printoptions(precision=2)
 
@@ -10,7 +10,7 @@ class DH_plotter():
 
     def __init__(self, nDoF=3, robot='3DoF'):
         self.nDoF = nDoF
-        self.kin = kinematics()
+        self.kin = Kinematics()
         if robot == 'Franka':
             # franka robot DH values
             self.a = np.array([0, 0, 0, 0.0825, -0.0825, 0, 0.088, 0])
