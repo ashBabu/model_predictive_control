@@ -12,6 +12,18 @@ from tvtk.api import tvtk
 save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
 
 
+def rot_mat_3d(*args):
+    if isinstance(args, tuple):
+        ang_x, ang_y, ang_z = args[0]
+    else:
+        ang_x, ang_y, ang_z = args
+    Rx = R.from_rotvec(ang_x * np.array([1, 0, 0]))
+    Ry = R.from_rotvec(ang_y * np.array([0, 1, 0]))
+    Rz = R.from_rotvec(ang_z * np.array([0, 0, 1]))
+    Rx, Ry, Rz = Rx.as_dcm(), Ry.as_dcm(), Rz.as_dcm()
+    return Rx @ Ry @ Rz
+
+
 class ForwardKinematics:
 
     def __init__(self, nDoF=3, robot='3DoF'):
@@ -30,15 +42,8 @@ class ForwardKinematics:
     def satellite_namipulator(self, rot_ang, q, pos, size, ax=None, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         # rot_ang = [ang_sx, ang_sy, ang_sz], q = [q1, q2, ...]
-        Rx = R.from_rotvec(rot_ang[0] * np.array([1, 0, 0]))
-        Ry = R.from_rotvec(rot_ang[1] * np.array([0, 1, 0]))
-        Rz = R.from_rotvec(rot_ang[2] * np.array([0, 0, 1]))
-        Rx, Ry, Rz = Rx.as_dcm(), Ry.as_dcm(), Rz.as_dcm()
-        # Rx, Ry, Rz = self.rotation_matrix(rot_ang)
-        Rot = Rx @ Ry @ Rz
+        Rot = rot_mat_3d(rot_ang)
         ang_b = self.kin.robot_base_ang(b0)
         ang_zb = ang_b[2]
         Rz_b = R.from_rotvec(ang_zb * np.array([0, 0, 1]))  # Refer pic.
@@ -243,11 +248,7 @@ class MayaviRendering:
         if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
         # rot_ang = [ang_sx, ang_sy, ang_sz], q = [q1, q2, ...]
-        Rx = R.from_rotvec(rot_ang[0] * np.array([1, 0, 0]))
-        Ry = R.from_rotvec(rot_ang[1] * np.array([0, 1, 0]))
-        Rz = R.from_rotvec(rot_ang[2] * np.array([0, 0, 1]))
-        Rx, Ry, Rz = Rx.as_dcm(), Ry.as_dcm(), Rz.as_dcm()
-        Rot = Rx @ Ry @ Rz
+        Rot = rot_mat_3d(rot_ang)
         ang_b = self.kin.robot_base_ang(b0)
         ang_zb = ang_b[2]
         Rz_b = R.from_rotvec(ang_zb * np.array([0, 0, 1]))  # Refer pic.
