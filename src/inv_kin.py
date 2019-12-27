@@ -4,11 +4,8 @@ import matplotlib.pyplot as plt
 from eom_symbolic import Dynamics, Kinematics
 from sympy import *
 from fwd_kin import ForwardKinematics, MayaviRendering
-# from scipy.spatial.transform import Rotation as R
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=3)
-# from mayavi import mlab
-# from tvtk.api import tvtk
 
 save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/'
 
@@ -211,7 +208,7 @@ class InverseKinematics:
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inv_kinematics_direct/%02d.png" % i)
             # print('hi')
 
-    def get_plts(self, A, Q, target_loc, q0, r_s):
+    def get_plts(self, A, Q, points, r_s):
         plt.figure()
         plt.plot(A[0, :], label='satellite_x_rotation')
         plt.plot(A[1, :], label='satellite_y_rotation')
@@ -227,17 +224,14 @@ class InverseKinematics:
         fig = plt.figure()
         ax = plt.axes(projection='3d')
 
-        ax.scatter(target_loc[0], target_loc[1], target_loc[2], lw=5)
-        points = self.path(target_loc, np.squeeze(q0))
-        # np.save(save_dir+'data/ref_path_xyz.npy', points, allow_pickle=True)
         self.animation(r_s, self.kin.size, 'green', A, Q, points, ax=ax)
 
 
 if __name__ == '__main__':
-    nDoF, b0 = 3, np.array([1.05, 0, 0])
+    nDoF, b0 = 3, np.array([-1.05, -1.05, 0])
     IK = InverseKinematics(nDoF=nDoF, robot='3DoF', b0=b0)
     asd = '20'
-    target_loc = np.array([-2.5, 3, 0.25])
+    target_loc = np.array([3, -2.5, 0.25])
     q0 = Array([[0.], [5*np.pi / 4], [np.pi/2]])
     # q0 = Array([[0.], [np.pi / 2.5], [-0.03]])
     ang_s0 = IK.kin.ang_s0
@@ -259,34 +253,22 @@ if __name__ == '__main__':
     q = np.c_[q0, Q]
     r_s = np.c_[r_s0, r_s]
     ang_s = np.c_[ang_s0, A]
-    # np.save(save_dir+'data/joint_angs_inv_kin.npy', q, allow_pickle=True),
-    # np.save(save_dir+'data/spacecraft_com_inv_kin.npy', r_s, allow_pickle=True),
-    # np.save(save_dir+'data/spacecraft_angs_inv_kin.npy', ang_s, allow_pickle=True),
-    # np.save(save_dir+'data/target_loc_inv_kin.npy', target_loc, allow_pickle=True)
+    # np.save(save_dir+'data/joint_angs_inv_kin1.npy', q, allow_pickle=True),
+    # np.save(save_dir+'data/spacecraft_com_inv_kin1.npy', r_s, allow_pickle=True),
+    # np.save(save_dir+'data/spacecraft_angs_inv_kin1.npy', ang_s, allow_pickle=True),
+    # np.save(save_dir+'data/target_loc_inv_kin1.npy', target_loc, allow_pickle=True)
 
+    points = IK.path(target_loc, np.squeeze(q0))
+    np.save(save_dir+'data/ref_path_xyz1.npy', points, allow_pickle=True)
     if f1 == 1:
-        IK.get_plts(A, Q, target_loc, q0, r_s)
+        IK.get_plts(A, Q, points, r_s)
     else:
-        IK.get_plts(A, Q, target_loc, q0, r_s)
+        IK.get_plts(A, Q, points, r_s)
 
     end_eff_pos = np.zeros((3, q.shape[1]))
     for i in range(q.shape[1]):
         end_eff_pos[:, i] = IK.manip_eef_pos_num(ang_s[:, i], q[:, i])
 
-    # np.save(save_dir+'data/end_eff_xyz.npy', end_eff_pos, allow_pickle=True)
-    import pickle
-    # writing to file
-    # file_path = '/home/ar0058/Ash/repo/model_predictive_control/src/trajectory/'
-    # file_name_ja, file_name_sa, file_name_ee = 'joint_angles', 'spacecraft_angles', 'end_eff_cart_coord'
-    # with open('%s%s%s.pickle' %(file_path, file_name_ja, asd), 'wb') as jq:
-    #     jq.write(pickle.dumps(q))
-    # with open('%s%s%s.pickle' %(file_path, file_name_sa, asd), 'wb') as sq:
-    #     sq.write(pickle.dumps(ang_s))
-    # with open('%s%s%s.pickle' %(file_path, file_name_ee, asd), 'wb') as eef:
-    #     eef.write(pickle.dumps(end_eff_pos))
-
-    # reading file
-    # with open('joint_angles.pickle', 'rb') as LmdR:
-    #     jjq = pickle.loads(LmdR.read())
+    # np.save(save_dir+'data/end_eff_xyz1.npy', end_eff_pos, allow_pickle=True)
     print('hi')
     plt.show()
