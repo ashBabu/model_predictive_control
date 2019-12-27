@@ -116,8 +116,6 @@ class Kinematics:
     def robot_base_ang(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        else:
-            b0 = b0
         an = (np.arctan2(b0[1], b0[0]) * 180 / np.pi) % 360  # gives an angles in 0 - 360 degrees
         an = (an - 90.) * np.pi / 180  # This means y axis is along the robot's first link as per DH
         ang_xb, ang_yb, ang_zb = 0., 0., an
@@ -129,8 +127,6 @@ class Kinematics:
         # j_T_b = transformation from robot_base to inertial
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        else:
-            b0 = b0
         ang_b = self.robot_base_ang(b0=b0)
         j_T_s = self.euler_transformations([self.ang_xs, self.ang_ys, self.ang_zs, self.r_sx, self.r_sy, self.r_sz])
         s_T_b = self.euler_transformations(
@@ -141,8 +137,6 @@ class Kinematics:
     def fwd_kin_symb_full(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        else:
-            b0 = b0
         T_joint, _ = self.fwd_kin_symb_manip(self.qm)
         j_T_s, j_T_b = self.fwd_kin_symb_spacecraft(b0=b0)
         j_T_full = []  # j_T_full is n x 4 x 4 transf. matrices # j_T_full = [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
@@ -156,8 +150,6 @@ class Kinematics:
         # {s}, {ji} are respectively the CS of spacecraft at its COM and joint CS of the manipulator
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        else:
-            b0 = b0
         j_T_full = self.fwd_kin_symb_full(b0=b0)
         pv_origins = zeros(3, self.nDoF+3)  # position vector of the origins of all coordinate system wrt inertial {j}
         pv_com = zeros(3, self.nDoF+1)  # position vector of the COM of spacecraft + each of the links wrt inertial {j}
@@ -180,8 +172,6 @@ class Kinematics:
     def rotations_from_inertial(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        else:
-            b0 = b0
         j_T_full = self.fwd_kin_symb_full(b0=b0)
         rot_full = list()
         for i in range(len(j_T_full)):
@@ -193,8 +183,6 @@ class Kinematics:
     def ab_vectors(self, com_vec=None, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        else:
-            b0 = b0
         j_T_full = self.fwd_kin_symb_full(b0=b0)
         _, _, j_com_vec = self.position_vectors(b0=b0)
         if not isinstance(com_vec, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
@@ -210,8 +198,6 @@ class Kinematics:
     def velocities(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        else:
-            b0 = b0
         j_T_full = self.fwd_kin_symb_full(b0=b0)
         pv_origins, pv_com, j_com_vec = self.position_vectors(b0=b0)
         # j_T_full = [0_T_s, 0_T_j0, 0_T_j1, 0_T_j2,..., 0_T_ee]
@@ -317,8 +303,6 @@ class Dynamics:
     def com_pos_vect(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         # rs, r1, r2 etc are pv from inertial to COM of spacecraft, link1, lin2, ...
         k11 = self.mass_frac()
         aa, bb = self.kin.ab_vectors(b0=b0)
@@ -352,8 +336,6 @@ class Dynamics:
     def jacobian_satellite(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         _, pv_eef, pv_origin = self.com_pos_vect(b0=b0)
         r_e_0 = pv_eef - pv_origin[:, 0]
         r_e0x = self.kin.skew_matrix(r_e_0)
@@ -366,8 +348,6 @@ class Dynamics:
     def geometric_jacobian_manip(self, b0=None):    # Method 2: for finding Jacobian
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         _, pv_eef, pv_origin = self.com_pos_vect(b0=b0)
         j_T_full = self.kin.fwd_kin_symb_full(b0=b0)  # [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
         J_manip = zeros(6, self.nDoF)  # initilizing jacobian
@@ -388,8 +368,6 @@ class Dynamics:
     def velocities_frm_momentum_conservation(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         t = Symbol('t')
         j_omega, _, _ = self.kin.velocities(b0=b0)
         pv_com, pv_eef, _ = self.com_pos_vect(b0=b0)
@@ -400,8 +378,6 @@ class Dynamics:
     def linear_momentum_conservation(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         j_omega, j_vel_com, _ = self.velocities_frm_momentum_conservation(b0=b0)
         L = zeros(3, 1)
         for i in range(self.nDoF+1):
@@ -411,8 +387,6 @@ class Dynamics:
     def momentOfInertia_transform(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         pv_com, _, _ = self.com_pos_vect(b0=b0)
         I = self.I
         rot_full = self.kin.rotations_from_inertial(b0=b0)
@@ -428,8 +402,6 @@ class Dynamics:
     def ang_momentum_conservation(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         I = self.momentOfInertia_transform(b0=b0)
         j_omega, _, _ = self.velocities_frm_momentum_conservation(b0=b0)
         j_omega = j_omega.col_del(1)  # [0_w_s, 0_w_1, 0_w_2...] robot base and satellite has same angular velocity
@@ -472,8 +444,6 @@ class Dynamics:
     def ang_moment_parsing(self, m=None, l=None, I=None, b0=None, ang_s0=None, q0=None, numeric=True):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         L = self.ang_momentum_conservation(b0=b0)
         qd = self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
@@ -496,8 +466,6 @@ class Dynamics:
     def calculate_spacecraft_ang_vel(self, m=None, l=None, I=None, b0=None, ang_s0=None, q0=None, qdm=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         Ls, Lm = self.ang_moment_parsing(m=m, l=l, I=I, b0=b0, ang_s0=ang_s0, q0=q0,)
         shp = qdm.shape[1]
         omega_s = np.zeros((3, shp))
@@ -508,8 +476,6 @@ class Dynamics:
     def calculate_spacecraft_lin_vel(self,  m=None, l=None, I=None, b0=None, ang_s0=None, q0=None, qdm=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         omega_s = self.calculate_spacecraft_ang_vel(m=m, l=l, I=I, b0=b0, ang_s0=ang_s0, q0=q0, qdm=qdm)
         shp = omega_s.shape[1]
         j_omega, j_vel_com, j_vel_eef = self.velocities_frm_momentum_conservation(b0=b0)
@@ -530,8 +496,6 @@ class Dynamics:
     def kinetic_energy(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         j_I = self.momentOfInertia_transform(b0=b0)
         # w, com_vel, _ = self.kin.velocities()  # for the full 9 x 9 matrix (6 DOF for spacecraft and 3DOF for arm)
         w, com_vel, _ = self.velocities_frm_momentum_conservation(b0=b0)
@@ -543,8 +507,6 @@ class Dynamics:
     def get_dyn_para(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         K = self.kinetic_energy(b0=b0)
         q, qd = self.kin.q[3:], self.kin.qd[3:]
         # P = self.potential_energy()
@@ -563,8 +525,6 @@ class Dynamics:
     def get_dyn_para_num(self, m=None, l=None, I=None, b0=None, ang_s0=None, q0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         K = self.kinetic_energy(b0=b0)
         q, qd = self.kin.q[3:], self.kin.qd[3:]
         qd_s, qd_m = qd[0:3], qd[3:]
@@ -607,8 +567,6 @@ class Dynamics:
     def get_positions(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
-        else:
-            b0 = b0
         solver = Solver()
         m, I = self.mass, self.I_num
         l = self.kin.l_num[1:]  # cutting out satellite length l0
