@@ -152,7 +152,7 @@ class ForwardKinematics:
 
 
 class MayaviRendering:
-    def __init__(self, nDoF=3, robot='3DoF', image_file='Nasa_blue_marble.jpg'):
+    def __init__(self, nDoF=3, robot='3DoF', image_file='Nasa_blue_marble1.jpg'):
         self.satPlot = SatellitePlotter(nDoF=nDoF, robot=robot)
         self.kin = Kinematics(nDoF=nDoF, robot=robot)
         self.dyn = Dynamics(nDoF=nDoF, robot=robot)
@@ -169,13 +169,13 @@ class MayaviRendering:
         image_file = outfile  # work with the flipped file from now on
 
         # parameters for the sphere
-        R = 3  # radius of the sphere
+        R = 5  # radius of the sphere
         Nrad = 180  # points along theta and phi
         phi = np.linspace(0, 2 * np.pi, Nrad)  # shape (Nrad,)
         theta = np.linspace(0, np.pi, Nrad)    # shape (Nrad,)
         phigrid, thetagrid = np.meshgrid(phi, theta)  # shapes (Nrad, Nrad)
 
-        xc, yc, zc = 8, 0, 0
+        xc, yc, zc = 10, 0, 0
         # compute actual points on the sphere
         x = xc + R * np.sin(thetagrid) * np.cos(phigrid)
         y = yc + R * np.sin(thetagrid) * np.sin(phigrid)
