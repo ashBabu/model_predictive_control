@@ -160,6 +160,7 @@ class MayaviRendering:
         self.image_file = image_file
 
     def manual_sphere(self, image_file):
+        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
         # caveat 1: flip the input image along its first axis
         img = plt.imread(image_file)  # shape (N,M,3), flip along first dim
         outfile = image_file.replace('.jpg', '_flipped.jpg')
@@ -187,6 +188,7 @@ class MayaviRendering:
 
         # create meshed sphere
         mesh = mlab.mesh(x, y, z)
+        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
         mesh.actor.actor.mapper.scalar_visibility = False
         mesh.actor.enable_texture = True  # probably redundant assigning the texture later
 
@@ -244,7 +246,7 @@ class MayaviRendering:
         cylinder_mapper.prevent_seam = 0 # use 360 degrees, might cause seam but no fake data
         #cylinder_mapper.center = np.array([0,0,0])
 
-    def plot_satellite_manipulator(self, rot_ang, q, pos, size, b0=None):
+    def calc_sat_manip_matrices(self, rot_ang, q, pos, size, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
         # rot_ang = [ang_sx, ang_sy, ang_sz], q = [q1, q2, ...]
@@ -279,7 +281,7 @@ class MayaviRendering:
         self.manual_sphere(self.image_file)
         p = [(rs[:, 0][0], rs[:, 0][1], rs[:, 0][2])][0]
         qi = q[:, 0]
-        T_combined, x, y, z = self.plot_satellite_manipulator(angs[:, 0], qi, pos=p, size=size, b0=b0)
+        T_combined, x, y, z = self.calc_sat_manip_matrices(angs[:, 0], qi, pos=p, size=size, b0=b0)
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         robot_base = mlab.points3d(xx, yy, zz, mode='sphere', scale_factor=0.25, color=(0.5, 0.5, 0.5))
         satellite = mlab.plot3d(x, y, z, tube_radius=.1, color=(0.8, 0.9, 0.5))
@@ -293,7 +295,7 @@ class MayaviRendering:
             for i in range(1, n):
                 p = [(rs[:, i][0], rs[:, i][1], rs[:, i][2])][0]
                 qi = q[:, i]
-                T_combined, x, y, z = self.plot_satellite_manipulator(angs[:, i], qi, pos=p, size=size, b0=b0)
+                T_combined, x, y, z = self.calc_sat_manip_matrices(angs[:, i], qi, pos=p, size=size, b0=b0)
                 xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
                 xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
                 robot_base.mlab_source.set(x=xx, y=yy, z=zz)
