@@ -21,6 +21,105 @@ class Rendering:
     def __init__(self, nDoF=3, robot='3DoF', image_file='Nasa_blue_marble1.jpg'):
         self.MR = MayaviRendering(nDoF=nDoF, robot=robot, image_file=image_file)
 
+    ####### ProMP ###########
+    def cubic_bezier(self, start, b, c, goal):
+        t = np.linspace(0, 1, 50)
+        curve = np.zeros((3, len(t)))
+        for i, t in enumerate(t):
+            curve[:, i] = (1 - t) ** 3 * start + 3 * (1 - t) ** 2 * t * b + 3 * (1 - t) * t ** 2 * c + t ** 3 * goal
+        return curve
+
+    def quadratic_bezier(self, start, b, goal):
+        t = np.linspace(0, 1, 50)
+        curve = np.zeros((3, len(t)))
+        for i, t in enumerate(t):
+            curve[:, i] = (1 - t)** 2 * start + 2 * (1 - t) * t * b + t ** 2 * goal
+        return curve
+
+    def get_curves(self, ref_path):
+        aa = list()
+        aa.append(ref_path.T)
+        s, g = ref_path[0, :], ref_path[-1, :]
+        for i in range(1, 5):
+            bb = np.array([-3.5 + i, i * 2, 1.2 * i])
+            aa.append(self.quadratic_bezier(s, bb, g))
+        return aa
+    @mlab.animate(delay=10)
+    def promp(self, ref_path, rs, angs, q, size, robot_base=None, satellite=None, manipulator=None, fig_save=False):
+        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+        s, g = ref_path[0, :], ref_path[-1, :]
+        x, y, z = ref_path[:, 0], ref_path[:, 1], ref_path[:, 2]
+        mlab.points3d(g[0], g[1], g[2], mode='sphere', scale_factor=0.25, color=(0.5, 0.45, 0.85))
+        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+        traj = mlab.points3d(x, y, z, mode='sphere', scale_factor=0.15, color=(0.15, 0.6, 0.5))
+        if fig_save:
+            mlab.savefig(save_dir + "animation/promp/%06d.png" % 0)
+        for i in range(5):
+            bb = np.array([-3.5 + i, i * 2, 1.2 * i])
+            aa = self.quadratic_bezier(s, bb, g)
+            for j in range(1, aa.shape[1]):
+                x, y, z = aa[0, :j - 1], aa[1, :j - 1], aa[2, :j - 1]
+                # traj.mlab_source.set(x=x, y=y, z=z)
+                traj.mlab_source.reset(x=x, y=y, z=z)
+                mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+                if fig_save:
+                    mlab.savefig(save_dir + "animation/promp/%03d%03d.png" % (i, j))
+                yield
+
+        i += 1
+        j += 1
+        aaa = self.get_curves(ref_path)
+        for k in range(len(aaa)):
+            mlab.points3d(aaa[k][0, :], aaa[k][1, :], aaa[k][2, :], mode='sphere', scale_factor=0.15,
+                          color=(0.15, 0.6, 0.5))
+            mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+        mlab.plot3d(ref_path[:, 0], ref_path[:, 1], ref_path[:, 2], tube_radius=0.05, color=(0.4, 0.7, 0.25))
+        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+        mlab.savefig(save_dir + "animation/promp/%03d%03d.png" % (i, j))
+        # self.tracking(rs, angs, q, size, robot_base, satellite, manipulator, fig_save=fig_save)
+        for ii in range(1, angs.shape[1]):
+            mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+            p = [(rs[:, ii][0], rs[:, ii][1], rs[:, ii][2])][0]
+            qi = q[:, ii]
+            T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs[:, ii], qi, pos=p, size=size)
+            xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
+            xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
+            robot_base.mlab_source.set(x=xx, y=yy, z=zz)
+            satellite.mlab_source.set(x=x, y=y, z=z)
+            manipulator.mlab_source.set(x=xa, y=ya, z=za)
+            i += 1
+            j += 1
+            if fig_save:
+                mlab.savefig(save_dir + "animation/promp/%03d%03d.png" % (i, j))
+            yield
+
+    @mlab.animate(delay=200)
+    def tracking(self, rs, angs, q, size, robot_base, satellite, manipulator, fig_save=False):
+        for i in range(1, angs.shape[1]):
+            mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+            p = [(rs[:, i][0], rs[:, i][1], rs[:, i][2])][0]
+            qi = q[:, i]
+            T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs[:, i], qi, pos=p, size=size)
+            xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
+            xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
+            robot_base.mlab_source.set(x=xx, y=yy, z=zz)
+            satellite.mlab_source.set(x=x, y=y, z=z)
+            manipulator.mlab_source.set(x=xa, y=ya, z=za)
+            if fig_save:
+                mlab.savefig(save_dir + "animation/%03d.png" % i)
+            yield
+
+    def plot_sat_manip(self, rs, angs, q, size):
+        T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs, q, pos=rs, size=size)
+        xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
+        robot_base = mlab.points3d(xx, yy, zz, mode='sphere', scale_factor=0.25, color=(0.5, 0.5, 0.5))
+        satellite = mlab.plot3d(x, y, z, tube_radius=.1, color=(0.8, 0.9, 0.5))
+        mlab.points3d(0, 0, 0, mode='sphere', scale_factor=0.4)
+        xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
+        manipulator = mlab.plot3d(xa, ya, za, color=(0.39, 0.84, 0.15), tube_radius=.1)
+        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+        return robot_base, satellite, manipulator
+
     @mlab.animate(delay=200)
     def anim(self, rs=None, angs=None, q=None, ref_path=None, fig_save=False, reverse=False):
         size = self.MR.kin.size[0]
@@ -30,7 +129,7 @@ class Rendering:
         self.MR.manual_sphere(self.MR.image_file)
         p = [(rs[:, 0][0], rs[:, 0][1], rs[:, 0][2])][0]
         qi = q[:, 0]
-        T_combined, x, y, z = self.MR.plot_satellite_manipulator(angs[:, 0], qi, pos=p, size=size)
+        T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs[:, 0], qi, pos=p, size=size)
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         robot_base = mlab.points3d(xx, yy, zz, mode='sphere', scale_factor=0.25, color=(0.5, 0.5, 0.5))
         satellite = mlab.plot3d(x, y, z, tube_radius=.1, color=(0.8, 0.9, 0.5))
@@ -38,6 +137,13 @@ class Rendering:
         xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
         manipulator = mlab.plot3d(xa, ya, za, color=(0.3, 0.4, 0.5), tube_radius=.1)
         mlab.plot3d(ref_path[:, 0], ref_path[:, 1], ref_path[:, 2], tube_radius=0.05, color=(0.4, 0.7, 0.25))
+
+        s, g = ref_path[0, :], ref_path[-1, :]
+        for i in range(1, 5):
+            bb = np.array([-3+i/2., i*1.2, 0.8*i])
+            aa = self.quadratic_bezier(s, bb, g)
+            mlab.points3d(aa[0, :], aa[1, :], aa[2, :], mode='sphere', scale_factor=0.15, color=(0.15, i/(i+1), 0.5))
+        mlab.show()
         if fig_save:
             mlab.savefig(save_dir+"animation/%02d.png" % 0)
         if angs.shape[1] > 3:
@@ -45,7 +151,7 @@ class Rendering:
             for i in range(1, n):
                 p = [(rs[:, i][0], rs[:, i][1], rs[:, i][2])][0]
                 qi = q[:, i]
-                T_combined, x, y, z = self.MR.plot_satellite_manipulator(angs[:, i], qi, pos=p, size=size)
+                T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs[:, i], qi, pos=p, size=size)
                 xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
                 xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
                 robot_base.mlab_source.set(x=xx, y=yy, z=zz)
@@ -63,7 +169,7 @@ class Rendering:
         end_eff_xyz = np.zeros_like(ang)
         for i in range(ang.shape[1]):
             pp = [(new_cg[:, i][0], new_cg[:, i][1], new_cg[:, i][2])][0]
-            T_combined, x, y, z = self.MR.plot_satellite_manipulator(ang[:, i], qq[:, i], pos=pp, size=size, b0=bb0)
+            T_combined, x, y, z = self.MR.calc_sat_manip_matrices(ang[:, i], qq[:, i], pos=pp, size=size, b0=bb0)
             end_eff_xyz[:, i] = T_combined[-1, 0:3, 3]
         return np.array(end_eff_xyz, dtype=float)
 
@@ -90,7 +196,7 @@ class Rendering:
         p = [(newcg[:, 0][0], newcg[:, 0][1], newcg[:, 0][2])][0]
         qi = q[:, 0]
 
-        T_combined, x, y, z = self.MR.plot_satellite_manipulator(angs[:, 0], qi, pos=p, size=size, b0=b0)
+        T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs[:, 0], qi, pos=p, size=size, b0=b0)
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         robot_base = mlab.points3d(xx, yy, zz, mode='sphere', scale_factor=0.25, color=(0.5, 0.5, 0.5))
         satellite = mlab.plot3d(x, y, z, tube_radius=.1, color=(0.8, 0.9, 0.5))
@@ -102,7 +208,7 @@ class Rendering:
         # mlab.plot3d(ref_path[:, 0], ref_path[:, 1], ref_path[:, 2], tube_radius=0.05, color=(0.4, 0.17, 0.25))
 
         qi1 = q1[:, 0]
-        T_combined1, x1, y1, z1 = self.MR.plot_satellite_manipulator(angs[:, 0], qi, pos=p, size=size, b0=b01)
+        T_combined1, x1, y1, z1 = self.MR.calc_sat_manip_matrices(angs[:, 0], qi, pos=p, size=size, b0=b01)
         xx1, yy1, zz1 = T_combined1[1, 0, 3], T_combined1[1, 1, 3], T_combined1[1, 2, 3]
         robot_base1 = mlab.points3d(xx1, yy1, zz1, mode='sphere', scale_factor=0.25, color=(0.5, 0.25, 0.15))
         xa1, ya1, za1 = T_combined1[1:, 0, 3], T_combined1[1:, 1, 3], T_combined1[1:, 2, 3]
@@ -116,7 +222,7 @@ class Rendering:
                 # p = [(rs[:, i][0], rs[:, i][1], rs[:, i][2])][0]
                 p = [(newcg[:, i][0], newcg[:, i][1], newcg[:, i][2])][0]
                 qi = q[:, i]
-                T_combined, x, y, z = self.MR.plot_satellite_manipulator(angs[:, i], qi, pos=p, size=size, b0=b0)
+                T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs[:, i], qi, pos=p, size=size, b0=b0)
                 xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
                 xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
                 robot_base.mlab_source.set(x=xx, y=yy, z=zz)
@@ -126,7 +232,7 @@ class Rendering:
                 # mlab.move(-3, i/45, 1.2)
                 # mlab.view(azimuth=-i/45, elevation=-i/85, distance=None, focalpoint=None, roll=None,
                 # reset_roll=True, figure=None)
-                T_combined1, x1, y1, z1 = self.MR.plot_satellite_manipulator(angs[:, i], qi1, pos=p, size=size,
+                T_combined1, x1, y1, z1 = self.MR.calc_sat_manip_matrices(angs[:, i], qi1, pos=p, size=size,
                                                                              b0=b01)
                 xx1, yy1, zz1 = T_combined1[1, 0, 3], T_combined1[1, 1, 3], T_combined1[1, 2, 3]
                 robot_base1.mlab_source.set(x=xx1, y=yy1, z=zz1)
@@ -136,15 +242,6 @@ class Rendering:
                     mlab.savefig(save_dir+"animation/%03d.png" % i)
                 yield
         i += 1
-        # c1, c2 = np.array([25.273, 20.536, 20.536]), np.array([-2.703, -6.041, -34.254])
-        # w = c2 - c1
-        # step = 0.03 * w / np.linalg.norm(w)
-        # n = int(np.linalg.norm(w) / np.linalg.norm(step)) + 1
-        # discretized = np.outer(np.arange(1, n), step) + c1
-        # discretized = np.insert(discretized, 0, c1, axis=0)
-        # discretized = np.insert(discretized, len(discretized), c2, axis=0)
-        # for i in range(discretized.shape[0]):
-        #     mlab.move(discretized[i, 0], discretized[i, 1], discretized[i, 2])
         newcg1 = find_newcg(angs1, rs1, rs[:, 0])
         eef_xyz1 = self.end_eff_pos(angs1, q1, size, b01, newcg1)
         mlab.plot3d(eef_xyz1[0, :], eef_xyz1[1, :], eef_xyz1[2, :], tube_radius=0.05, color=(0.64, 0.37, 0.5))
@@ -160,7 +257,7 @@ class Rendering:
                 # p1 = [(rs1[:, j][0], rs1[:, j][1], rs1[:, j][2])][0]
                 p1 = [(newcg1[:, j][0], newcg1[:, j][1], newcg1[:, j][2])][0]
                 qi1 = q1[:, j]
-                T_combined1, x1, y1, z1 = self.MR.plot_satellite_manipulator(angs1[:, j], qi1, pos=p1, size=size, b0=b01)
+                T_combined1, x1, y1, z1 = self.MR.calc_sat_manip_matrices(angs1[:, j], qi1, pos=p1, size=size, b0=b01)
                 xx1, yy1, zz1 = T_combined1[1, 0, 3], T_combined1[1, 1, 3], T_combined1[1, 2, 3]
                 xa1, ya1, za1 = T_combined1[1:, 0, 3], T_combined1[1:, 1, 3], T_combined1[1:, 2, 3]
                 robot_base1.mlab_source.set(x=xx1, y=yy1, z=zz1)
@@ -170,7 +267,7 @@ class Rendering:
                 # mlab.move(-3, j/45, 1.2)
                 # mlab.view(azimuth=-j/45, elevation=-j/85, distance=None, focalpoint=None, roll=None,
                 # reset_roll=True, figure=None)
-                T_combined, x, y, z = self.MR.plot_satellite_manipulator(angs1[:, j], q[:, 0], pos=p1, size=size, b0=b0)
+                T_combined, x, y, z = self.MR.calc_sat_manip_matrices(angs1[:, j], q[:, 0], pos=p1, size=size, b0=b0)
                 xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
                 xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
                 robot_base.mlab_source.set(x=xx, y=yy, z=zz)
@@ -225,25 +322,22 @@ if __name__ == '__main__':
     ref_angles = joint_angles
     ref_angles1 = joint_angles1
 
-    # plt.plot(mpc_optimized_angles[0])
-    # fig = plt.figure()
-    # plt.cla()
-    # ax = plt.axes()
-    # # ax.set_aspect('equal')
-    # fig.set_facecolor('black')
-    # ax.set_facecolor('black')
-    # ax.grid(False)
-    # ax.w_xaxis.pane.fill = False
-    # ax.w_yaxis.pane.fill = False
-    # ax.w_zaxis.pane.fill = False
-    # plt.axis('off')
     b0, b01 = np.array([1.05, 1.05, 0]), np.array([-1.05, -1.05, 0])
     render = Rendering()
     # render.matplotlib_anim(mpc_optimized_angles, ref_angles)
     # render.anim(rs=spacecraft_coms, angs=spacecraft_angles, q=joint_angles, ref_path=ref_path,
-    #             fig_save=True, reverse=False)
-    render.anim1(rs=spacecraft_coms, angs=spacecraft_angles, q=joint_angles, ref_path=ref_path, b0=b0, b01=b01,
-                 rs1=spacecraft_coms1, angs1=spacecraft_angles1, q1=joint_angles1, ref_path1=ref_path1, fig_save=True, reverse=True)
+    #             fig_save=False, reverse=False)
+    # render.anim1(rs=spacecraft_coms, angs=spacecraft_angles, q=joint_angles, ref_path=ref_path, b0=b0, b01=b01,
+    #              rs1=spacecraft_coms1, angs1=spacecraft_angles1, q1=joint_angles1, ref_path1=ref_path1, fig_save=False, reverse=True)
+
+    ############ ProMP ########################
+    rs, angs, q, size, = spacecraft_coms, spacecraft_angles, joint_angles, [2.1, 2.1, 2.1]
+    mlab.figure(size=(1400, 800), bgcolor=(0., 0., 0.), )
+    render.MR.manual_sphere(render.MR.image_file)
+    r, s, m = render.plot_sat_manip(spacecraft_coms[:, 0], spacecraft_angles[:, 0], joint_angles[:, 0], size)
+    mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+    render.promp(ref_path, rs, angs, q, size, robot_base=r, satellite=s, manipulator=m, fig_save=False)
+    ###########################################
     mlab.show()
     # plt.show()
     print('hi')
