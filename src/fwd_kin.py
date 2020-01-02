@@ -160,7 +160,7 @@ class MayaviRendering:
         self.image_file = image_file
 
     def manual_sphere(self, image_file):
-        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+        # mlab.view(distance=18, focalpoint=(0, 0, -0.5))
         # caveat 1: flip the input image along its first axis
         img = plt.imread(image_file)  # shape (N,M,3), flip along first dim
         outfile = image_file.replace('.jpg', '_flipped.jpg')
@@ -188,7 +188,7 @@ class MayaviRendering:
 
         # create meshed sphere
         mesh = mlab.mesh(x, y, z)
-        mlab.view(distance=18, focalpoint=(0, 0, -0.5))
+        # mlab.view(distance=18, focalpoint=(0, 0, -0.5))
         mesh.actor.actor.mapper.scalar_visibility = False
         mesh.actor.enable_texture = True  # probably redundant assigning the texture later
 
@@ -272,24 +272,28 @@ class MayaviRendering:
         x, y, z = mr[0, :], mr[1, :], mr[2, :]
         return T_combined, x, y, z
 
-    @mlab.animate(delay=100)
+    @mlab.animate(delay=300)
     def anim(self, rs=None, angs=None, q=None, b0=None, fig_save=False, reverse=False):
         size = self.kin.size[0]
         if reverse:
             rs, angs, q = np.hstack((rs, np.fliplr(rs))), np.hstack((angs, np.fliplr(angs))), np.hstack((q, np.fliplr(q)))
-        mlab.figure(size=(1000, 800), bgcolor=(0., 0., 0.), )
+        mlab.figure(size=(1200, 900), bgcolor=(0., 0., 0.), )
         self.manual_sphere(self.image_file)
+        # d, f, az, el = 24, (-0.6,  0.312,  0.38), 47, 100
+        d, f, az, el = 24, (-0.6,  0.312,  0.38), 147, 10
+        mlab.view(distance=d, focalpoint=f, azimuth=az, elevation=el)
         p = [(rs[:, 0][0], rs[:, 0][1], rs[:, 0][2])][0]
         qi = q[:, 0]
         T_combined, x, y, z = self.calc_sat_manip_matrices(angs[:, 0], qi, pos=p, size=size, b0=b0)
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         robot_base = mlab.points3d(xx, yy, zz, mode='sphere', scale_factor=0.25, color=(0.5, 0.5, 0.5))
         satellite = mlab.plot3d(x, y, z, tube_radius=.1, color=(0.8, 0.9, 0.5))
-        mlab.points3d(0, 0, 0, mode='point', scale_factor=4)
+        mlab.points3d(0, 0, 0, mode='sphere', scale_factor=.4)
         xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]
-        manipulator = mlab.plot3d(xa, ya, za, color=(0.3, 0.4, 0.5), tube_radius=.1)
+        manipulator = mlab.plot3d(xa, ya, za, color=(0.13, 0.14, 0.75), tube_radius=.1)
+        mlab.view(distance=d, focalpoint=f, azimuth=az, elevation=el)
         if fig_save:
-            mlab.savefig(save_dir+"animation/%02d.png" % 0)
+            mlab.savefig(save_dir+"animation/%03d.png" % 0)
         if angs.shape[1] > 3:
             n = angs.shape[1]
             for i in range(1, n):
@@ -302,7 +306,7 @@ class MayaviRendering:
                 satellite.mlab_source.set(x=x, y=y, z=z)
                 manipulator.mlab_source.set(x=xa, y=ya, z=za)
                 if fig_save:
-                    mlab.savefig(save_dir+"animation/%02d.png" % i)
+                    mlab.savefig(save_dir+"animation/%03d.png" % i)
                 yield
 
     def get_plots(self, r_s, ang_s, q, q_dot, t):
@@ -339,14 +343,16 @@ if __name__ == '__main__':
     ###################################################
     sim = ForwardKinematics()
     b0 = np.array([-1.05, 1.05, 0])
-    r_s, ang_s, q, q_dot, t, pv_com = sim.dyn.get_positions(b0=b0)
+    # r_s, ang_s, q, q_dot, t, pv_com = sim.dyn.get_positions(b0=b0)
     # np.save('rs.npy', r_s, allow_pickle=True), np.save('ang_s.npy', ang_s, allow_pickle=True), np.save('q.npy', q, allow_pickle=True), \
     # np.save('q_dot.npy', q_dot, allow_pickle=True), np.save('pv_com.npy', pv_com, allow_pickle=True)
-    # t = np.load(save_dir+'data/t.npy', allow_pickle=True)
-    # r_s, ang_s, q, q_dot, pv_com = np.load(save_dir+'data/rs.npy', allow_pickle=True), \
-    #                                np.load(save_dir+'data/ang_s.npy', allow_pickle=True),\
-    #                                    np.load(save_dir+'data/q.npy', allow_pickle=True),\
-    #                                np.load(save_dir+'data/q_dot.npy', allow_pickle=True),\
+    t = np.load(save_dir+'data/t.npy', allow_pickle=True)
+    r_s, ang_s, q, q_dot, pv_com = np.load(save_dir+'data/rs.npy', allow_pickle=True), \
+                                   np.load(save_dir+'data/ang_s.npy', allow_pickle=True),\
+                                       np.load(save_dir+'data/q.npy', allow_pickle=True),\
+                                   np.load(save_dir+'data/q_dot.npy', allow_pickle=True), \
+                                   np.load(save_dir + 'data/pv_com.npy', allow_pickle=True),
+    
     i = int(input('1:Matplotlib, 2: Mayavi'))
     if i == 1:
         # For Matplotlib simulation:
