@@ -22,6 +22,11 @@ class DH_plotter():
             self.a = self.kin.a
             self.d = self.kin.d
             self.eef_dist = self.kin.eef_dist
+        elif robot == '7DoF':
+            self.a = np.array([0., 0., 1., 0., 0., 1.5, 0.])
+            self.d = np.array([0.5, 0., 0., 1., 0., 0., 1.5])
+            self.alpha = np.array([-np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, ])
+            self.eef_dist = 0.0
 
     def robot_DH_matrix(self, q):
         t, T_joint, Ti = np.eye(4), np.zeros((self.nDoF+1, 4, 4)), np.zeros((self.nDoF+1, 4, 4))
@@ -53,35 +58,37 @@ class DH_plotter():
                 ax.scatter(T_joint[i, 0, 3], T_joint[i, 1, 3], T_joint[i, 2, 3], 'gray', lw=10)
                 x, y, z = T_joint[i, 0, 3], T_joint[i, 1, 3], T_joint[i, 2, 3]
                 # ax.axis('equal')
-                ax.set_zlim(0., 2.)
-                ax.set_ylim(0., 3.)
-                ax.set_xlim(-2., 2.)
+                # ax.set_zlim(0., 2.)
+                # ax.set_ylim(0., 3.)
+                # ax.set_xlim(-2., 2.)
                 plt.xlabel('X')
-            plt.pause(0.01)
+            # plt.pause(0.01)
 
 
 if __name__ == '__main__':
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
-
-    # robot = 'Franka'
-    # nDoF = 8
-    # q = np.zeros(8)
-    robot = '3DOF'
-    nDoF = 3
-    # the 3 DOF manipulator is a straight line when the joint angles are [0, 90, , 0]
-    q = np.array([np.pi/4*0, np.pi/2, np.pi/2*0])
-    dh_plotter = DH_plotter(nDoF, robot)
+    i = int(input('1==Franka ; 2 == 3DoF ; 3 == 7DoF', ))
     q3 = np.linspace(0, np.pi/2, 50)
     q1 = np.linspace(0, np.pi, 50)
     Tt = list()
-    for i in range(len(q3)):
-        # q = np.array([0, np.pi/2, q3[i]])
-        q = np.array([q1[i], np.pi/2, np.pi/2])
-        # q = np.array([0, np.pi/2, q3[i]])
+    if i == 1:
+        robot = 'Franka'
+        nDoF = 8
+        q = np.zeros(8)
+    elif i == 2:
+        robot = '3DoF'
+        nDoF = 3
+        q = np.array([q1[i], np.pi / 2, np.pi / 2])
+    elif i == 3:
+        robot = '7DoF'
+        nDoF = 7
+        q = np.zeros(7)
+
+    dh_plotter = DH_plotter(nDoF, robot)
+    for i in range(len(q)):
         T_joint, Ti = dh_plotter.robot_DH_matrix(q)
         Tt.append(T_joint)
     dh_plotter.plotter(ax, Tt, 'desired', color='blue')
-
     plt.show()
