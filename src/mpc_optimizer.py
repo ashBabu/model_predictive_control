@@ -2,7 +2,6 @@ import numpy as np
 import sympy as sp
 import scipy.optimize as opt
 from scipy.linalg import block_diag
-from mechanics_2DOF import dynamics, kinematics
 import matplotlib.pyplot as plt
 import time
 
@@ -81,8 +80,6 @@ class mpc_opt():
 
         self.optCurve, self.costs = [], []
         self.omega = 0.5
-        self.dyn = dynamics()
-        self.kin = kinematics()
 
     def plant_model(self, x, u):
         x_dot = self.A * x + self.B * u
