@@ -219,7 +219,15 @@ class mpc_opt():
         return U
 
     def get_state_and_input(self, u0, x0):
-        X, U = np.zeros((len(x0), len(self.t))), np.zeros((len(u0), len(self.t)))
+        if isinstance(u0, float):
+            len_u = 1
+        else:
+            len_u = len(u0)
+        if isinstance(x0, float):
+            len_x = 1
+        else:
+            len_x = len(x0)
+        X, U = np.zeros((len_x, len(self.t))), np.zeros((len_u, len(self.t)))
         u0 = np.tile(u0, (self.N, 1))
         nx, nu = self.B.shape
         for i in range(len(self.t)):
