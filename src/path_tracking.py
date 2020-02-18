@@ -16,6 +16,8 @@ save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/'
 load_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/data/'
 save_dir_mpc = '/home/ash/Ash/repo/model_predictive_control/src/save_ffmpc/'
 
+load_dir = '/home/ashith/Ash/repo/model_predictive_control/src/save_data_inv_kin/data/'
+
 
 class Rendering:
     def __init__(self, nDoF=3, robot='3DoF', image_file='Nasa_blue_marble1.jpg'):

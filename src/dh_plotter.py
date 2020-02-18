@@ -23,9 +23,13 @@ class DH_plotter():
             self.d = self.kin.d
             self.eef_dist = self.kin.eef_dist
         elif robot == '7DoF':
-            self.a = np.array([0., 0., 1., 0., 0., 1.5, 0.])
-            self.d = np.array([0.5, 0., 0., 1., 0., 0., 1.5])
-            self.alpha = np.array([-np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, ])
+            # self.a = np.array([0., 0., 1.2, 0., 0., 1., 0.])
+            # self.d = np.array([0.5, 0., 0., 1.5, 0., 0., 1.])
+            # self.alpha = np.array([-np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2])
+
+            self.a = np.array([0., 0., 1., 0.7, 0.5, 0.5, 1.51])
+            self.d = np.array([0.5, 0., 0., 0., 0., 0., 0.])
+            self.alpha = np.array([-np.pi/2, np.pi/2, np.pi/2, -np.pi/2, np.pi/2, -np.pi/2, np.pi/2])
             self.eef_dist = 0.0
 
     def robot_DH_matrix(self, q):

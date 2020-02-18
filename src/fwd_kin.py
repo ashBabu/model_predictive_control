@@ -9,7 +9,8 @@ np.set_printoptions(precision=3)
 from mayavi import mlab
 from tvtk.api import tvtk
 
-save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
+# save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
+save_dir = '/home/ashith/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
 
 
 def rot_mat_3d(*args):
@@ -60,7 +61,7 @@ class ForwardKinematics:
         T_combined[0, :, :], T_combined[1, :, :] = j_Ts, j_Tb
         for i in range(2, T_joint_manip.shape[0]+2):
             T_combined[i, :, :] = j_Tb @ T_joint_manip[i-2, :, :]
-        a = 4.2
+        a = 1.5
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
@@ -68,7 +69,7 @@ class ForwardKinematics:
             m = np.vstack((xxx, yyy, zzz))
             mr = Rot @ m + np.array([[pos[0]], [pos[1]], [pos[2]]])
             x, y, z = mr[0, :], mr[1, :], mr[2, :]
-            ax.plot(x, y, z, lw=5)
+            ax.plot(x, y, z, 'g', lw=5)
             ax.scatter(0, 0, 0, lw=5)
             # ax.scatter(pos[0], pos[1], pos[2], lw=5)
 
@@ -79,7 +80,7 @@ class ForwardKinematics:
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
-            ax.view_init(elev=83., azim=-83.)
+            ax.view_init(elev=54., azim=-140.)
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
@@ -127,6 +128,7 @@ class ForwardKinematics:
         #                                np.load(save_dir+'data/pv_com.npy', allow_pickle=True)
         # t = np.load(save_dir+'data/t.npy', allow_pickle=True)
         self.call_plot(r_s, sizes, colors, ang_s, q, b0=b0)  # Animation
+        """
         r_sx, r_sy, r_sz = r_s[0, :], r_s[1, :], r_s[2, :]
         ang_sx, ang_sy, ang_sz = ang_s[0, :], ang_s[1, :], ang_s[2, :]
         q1, q2, q3 = q[0, :], q[1, :], q[2, :]
@@ -149,7 +151,7 @@ class ForwardKinematics:
         plt.plot(t, q3, label='q3')
         plt.legend()
         plt.show()
-
+        """
 
 class MayaviRendering:
     def __init__(self, nDoF=3, robot='3DoF', image_file='Nasa_blue_marble1.jpg'):
