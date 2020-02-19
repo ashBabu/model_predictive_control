@@ -15,7 +15,7 @@ save_dir = '/home/ashith/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/
 # T_joint, Ti = DH.robot_DH_matrix(q1)
 
 pi = np.pi
-q1 = np.array([(0., 5*pi/4, 0., 0., 0., pi/2, 0.)])
+q1 = np.array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
 b0 = np.array([-1.05, 1.05, 0])
 # r_s, ang_s, q, q_dot, t, pv_com = sim.dyn.get_positions(b0=b0)
 # np.save('rs.npy', r_s, allow_pickle=True), np.save('ang_s.npy', ang_s, allow_pickle=True), np.save('q.npy', q, allow_pickle=True), \

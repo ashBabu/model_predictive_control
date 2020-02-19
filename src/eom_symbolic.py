@@ -27,6 +27,14 @@ class Kinematics:
             self.a = Array([0., 0., 2.5])
             self.d = Array([0.25, 0., 0.])
             self.eef_dist = 2.50  # l3
+        elif robot == '7DoF':
+            self.l_num = np.array([3.5, 0.5, 0.5, 1., 0.7, 0.5, 0.5, 1.5])
+            self.ang_s0 = Array([0., 0., 0.])
+            self.q0 = Array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
+            self.a = np.array([0., 0., 1., 0.7, 0.5, 0.5, 1.5])
+            self.d = np.array([0.5, 0., 0., 0., 0., 0., 0.])
+            self.alpha = np.array([-np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2])
+            self.eef_dist = 0.0
         else:
             self.a = Array([0, *self.l])
             self.d = Array([0.0, 0.0])
@@ -267,15 +275,26 @@ class Dynamics:
         self.tau, self.I = self.initializing(self.nDoF)
         self.I_full = [self.Is_xx, self.Is_yy, self.Is_zz, *self.Ixx, *self.Iyy, *self.Izz]
 
-        self.kin = Kinematics()
+        self.kin = Kinematics(nDoF=self.nDoF, robot=robot)
 
         # numeric values
-        self.mass = np.array([200.0, 20.0, 50.0, 50.0], dtype=float)  # mass of satellite and each of the links respec
-        self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
-        self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
-        self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
-        self.I3 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
-        self.I_num = np.array([1400.0, 1400.0, 2040.0, 0.10, 0.25, 0.25, 0.10, 0.26, 0.26, 0.10, 0.26, 0.26])
+        if robot == '3DoF':
+            self.mass = np.array([200.0, 20.0, 50.0, 50.0], dtype=float)  # mass of satellite and each of the links respec
+            self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
+            self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
+            self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
+            self.I3 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
+            self.I_num = np.array([1400.0, 1400.0, 2040.0, 0.10, 0.25, 0.25, 0.10, 0.26, 0.26, 0.10, 0.26, 0.26])
+
+        elif robot == '7DoF':
+            self.mass = np.array([200.0, 20.0, 30.0, 30.0, 20.0, 20.0, 20.0, 20.0],
+                                 dtype=float)  # mass of satellite and each of the links respec
+            # self.Is = Matrix([[1400.0, 0.0, 0.0], [0.0, 1400.0, 0.0], [0.0, 0.0, 2040.0]])
+            # self.I1 = Matrix([[0.10, 0.0, 0.0], [0.0, 0.10, 0], [0.0, 0.0, 0.10]])
+            # self.I2 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
+            # self.I3 = Matrix([[0.25, 0.0, 0.0], [0.0, 26.0, 0], [0.0, 0.0, 26.0]])
+            self.I_num = np.array([1400.0, 1400.0, 2040.0, 0.10, 0.25, 0.25, 0.10, 0.25, 0.25, 0.10, 0.25, 0.25,
+                                   0.10, 0.25, 0.25, 0.10, 0.25, 0.25, 0.10, 0.26, 0.26, 0.10, 0.26, 0.26])
 
         # self.M, self.C, self.G = self.get_dyn_para(self.kin.q, self.kin.qd)
 
