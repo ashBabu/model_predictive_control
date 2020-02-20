@@ -9,8 +9,8 @@ np.set_printoptions(precision=3)
 from mayavi import mlab
 from tvtk.api import tvtk
 
-# save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
-save_dir = '/home/ashith/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
+save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
+# save_dir = '/home/ashith/Ash/repo/model_predictive_control/src/save_dir_fwd_kin/'
 
 
 def rot_mat_3d(*args):
@@ -285,7 +285,10 @@ class MayaviRendering:
         d, f, az, el = 24, (-0.6,  0.312,  0.38), 147, 10
         mlab.view(distance=d, focalpoint=f, azimuth=az, elevation=el)
         p = [(rs[:, 0][0], rs[:, 0][1], rs[:, 0][2])][0]
-        qi = q[:, 0]
+        if q.ndim > 1:
+            qi = q[:, 0]
+        else:
+            qi = q
         T_combined, x, y, z = self.calc_sat_manip_matrices(angs[:, 0], qi, pos=p, size=size, b0=b0)
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
         robot_base = mlab.points3d(xx, yy, zz, mode='sphere', scale_factor=0.25, color=(0.5, 0.5, 0.5))
@@ -300,7 +303,10 @@ class MayaviRendering:
             n = angs.shape[1]
             for i in range(1, n):
                 p = [(rs[:, i][0], rs[:, i][1], rs[:, i][2])][0]
-                qi = q[:, i]
+                if q.ndim > 1:
+                    qi = q[:, i]
+                else:
+                    qi = q
                 T_combined, x, y, z = self.calc_sat_manip_matrices(angs[:, i], qi, pos=p, size=size, b0=b0)
                 xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]
                 xa, ya, za = T_combined[1:, 0, 3], T_combined[1:, 1, 3], T_combined[1:, 2, 3]

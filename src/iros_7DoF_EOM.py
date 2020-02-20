@@ -30,11 +30,13 @@ class Kinematics:
         elif robot == '7DoF':
             self.l_num = np.array([3.5, 0.5, 0.5, 1., 0.7, 0.5, 0.5, 1.5])
             self.ang_s0 = Array([0., 0., 0.])
-            self.q0 = Array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
-            self.a = np.array([0., 0., 1., 0.7, 0.5, 0.5, 1.5])
-            self.d = np.array([0.5, 0., 0., 0., 0., 0., 0.])
-            self.alpha = np.array([-np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2])
-            self.eef_dist = 0.0
+            self.q0 = np.array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
+
+            self.eef_dist = 0.3
+            self.a = np.array([0., 0., 1., 0.7, 0.5, 0.5, 0., 0.])
+            self.d = np.array([0.5, 0., 0., 0., 0., 0., 1.5, self.eef_dist])
+            self.alpha = np.array([-np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2, -np.pi / 2, -np.pi / 2, 0.])
+
         else:
             self.a = Array([0, *self.l])
             self.d = Array([0.0, 0.0])
@@ -98,47 +100,19 @@ class Kinematics:
                     [0, 0, 0, 1]])
         return T
 
-    def robot_DH_matrix(self):
-        T = Matrix([[cos(self.q_i), -sin(self.q_i), 0, self.a_i],
-                    [sin(self.q_i) * cos(self.alpha_i), cos(self.q_i) * cos(self.alpha_i), -sin(self.alpha_i), -sin(self.alpha_i) * self.d_i],
-                    [sin(self.q_i) * sin(self.alpha_i), cos(self.q_i) * sin(self.alpha_i), cos(self.alpha_i), cos(self.alpha_i) * self.d_i],
-                    [0, 0, 0, 1]])
-        return T
-
     def fwd_kin_manip(self, q):   # forward kinematics of the manipulator alone
-        # T = self.robot_DH_matrix()
-        T_joint, T_i_i1 = [], []  # T_i_i1 is the 4x4 transformation matrix relating i+1 frame to i
-        t = np.eye(4)
-        for i in range(len(q)):
-            temp = np.array([[np.cos(q[i]), -np.sin(q[i]), 0, self.a[i]],
-                    [np.sin(q[i]) * np.cos(self.alpha[i]), np.cos(q[i]) * np.cos(self.alpha[i]), -np.sin(self.alpha[i]), -np.sin(self.alpha[i]) * self.d[i]],
-                    [np.sin(q[i]) * np.sin(self.alpha[i]), np.cos(q[i]) * np.sin(self.alpha[i]), np.cos(self.alpha[i]), np.cos(self.alpha[i]) * self.d[i]],
-                    [0, 0, 0, 1]])
-            t = t @ temp
-            T_joint.append(t)  # joint transformation matrix wrt base
-            T_i_i1.append(temp)
-        tmp = np.eye(4)
-        tmp[0, 3] = self.eef_dist
-        T_i_i1.append(tmp)  # Adding eef transformation (basically an identity matrix with a translation)
-        T_ee = t @ tmp
-        T_joint.append(T_ee)
-        return T_joint, T_i_i1
-
-    def fwd_kin_symb_manip(self, q):   # symbolic forward kinematics of the manipulator alone
-        T = self.robot_DH_matrix()
-        T_joint, T_i_i1 = [], []  # T_i_i1 is the 4x4 transformation matrix relating i+1 frame to i
-        t = eye(4)
-        for i in range(len(q)):
-            temp = msubs(T, {self.alpha_i: self.alpha[i], self.a_i: self.a[i], self.d_i: self.d[i], self.q_i: q[i]})
-            t = t @ temp
-            T_joint.append(t)  # joint transformation matrix wrt base
-            T_i_i1.append(temp)
-        tmp = eye(4)
-        tmp[0, 3] = self.eef_dist
-        T_i_i1.append(tmp)  # Adding eef transformation (basically an identity matrix with a translation)
-        T_ee = t @ tmp
-        T_joint.append(T_ee)
-        return T_joint, T_i_i1
+        t, T_joint, Ti = np.eye(4), np.zeros((self.nDoF+1, 4, 4)), np.zeros((self.nDoF+1, 4, 4))
+        q = np.array(simplify(q)).astype(np.float64)
+        q = np.insert(q, len(q), 0.0, axis=0)  # for end-effector (just a translation for the fixed joint)
+        for i in range(q.shape[0]):
+            T = np.array([[np.cos(q[i]), -np.sin(q[i]), 0, self.a[i]],
+                          [np.sin(q[i]) * np.cos(self.alpha[i]), np.cos(q[i]) * np.cos(self.alpha[i]), -np.sin(self.alpha[i]), -np.sin(self.alpha[i]) * self.d[i]],
+                          [np.sin(q[i]) * np.sin(self.alpha[i]), np.cos(q[i]) * np.sin(self.alpha[i]), np.cos(self.alpha[i]), np.cos(self.alpha[i]) * self.d[i]],
+                          [0, 0, 0, 1]], dtype='float')
+            t = t @ T
+            Ti[i, :, :] = T
+            T_joint[i, :, :] = t
+        return T_joint, Ti
 
     def robot_base_ang(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
@@ -149,43 +123,43 @@ class Kinematics:
         ang_b = np.array([ang_xb, ang_yb, ang_zb], dtype=float)
         return ang_b
 
-    def fwd_kin_spacecraft(self, *args, b0=None):
-        ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
+    def fwd_kin_spacecraft(self, b0=None):
+        # ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
         # j_T_s = transformation from spacecraft COM to inertial
         # j_T_b = transformation from robot_base to inertial
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
         ang_b = self.robot_base_ang(b0=b0)
-        j_T_s = self.euler_transformations([ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz])
+        # j_T_s = self.euler_transformations([ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz])
         s_T_b = self.euler_transformations(
             [ang_b[0], ang_b[1], ang_b[2], b0[0], b0[1], b0[2]])  # a constant 4 x 4 matrix
-        j_T_b = j_T_s @ s_T_b  # transformation from inertial to robot base
-        return j_T_s, j_T_b
+        # j_T_b = j_T_s @ s_T_b  # transformation from inertial to robot base
+        return s_T_b
 
-    def fwd_kin_full(self, q, *args, b0=None):
+    def fwd_kin_full(self, q, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
         T_joint, _ = self.fwd_kin_manip(q)
-        ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
-        j_T_s, j_T_b = self.fwd_kin_spacecraft(ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
-        j_T_full = []  # j_T_full is n x 4 x 4 transf. matrices # j_T_full = [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
+        # ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
+        s_T_b = self.fwd_kin_spacecraft(b0=b0)
+        s_T_full = np.zeros((T_joint.shape[0]+s_T_b.shape[0], 4, 4)) # j_T_full is n x 4 x 4 transf. matrices # j_T_full = [s_T_b, s_T_j1, s_T_j2,..., s_T_ee]
         # containing satellite, robot base and each of the joint CS
-        j_T_full.extend([j_T_s, j_T_b])
-        for i in range(2, 3+self.nDoF):
-            j_T_full.append(j_T_b @ T_joint[i - 2])
-        return j_T_full
+        s_T_full[0, :, :] = s_T_b
+        for i in range(1, 2+self.nDoF):
+            s_T_full[i, :, :] = s_T_b @ T_joint[i - 1]
+        return s_T_full
 
-    def pos_vect(self, q, *args, b0=None): # position vectors of COM of each link wrt inertial CS, {j}
+    def pos_vect(self, q, b0=None):  # position vectors of COM of each link wrt spacecraft CS, {s}
         # {s}, {ji} are respectively the CS of spacecraft at its COM and joint CS of the manipulator
-        ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
+        # ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        j_T_full = self.fwd_kin_full(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
-        pv_origins = np.zeros((3, self.nDoF+3))  # position vector of the origins of all coordinate system wrt inertial {j}
-        pv_com = np.zeros((3, self.nDoF+1))  # position vector of the COM of spacecraft + each of the links wrt inertial {j}
+        s_T_full = self.fwd_kin_full(q, b0=b0)
+        pv_origins = np.zeros((3, self.nDoF+3))  # position vector of the origins of all coordinate system wrt satellite {s}
+        pv_com = np.zeros((3, self.nDoF+1))  # position vector of the COM of spacecraft + each of the links wrt satellite {s}
 
-        for i in range(self.nDoF+3):  # includes end-eff origin
-            pv_origins[:, i] = j_T_full[i][0:3, 3]  # [0_r_s, 0_r_b, 0_r_j1, ...0_r_eef]
+        for i in range(1, self.nDoF+3):  # includes end-eff origin
+            pv_origins[:, i] = s_T_full[i][0:3, 3]  # [s_r_b, s_r_j1, ...s_r_eef]
         kk = 1
         pv_com[:, 0] = pv_origins[:, 0]
         j_com_vec, ll = np.zeros((3, self.nDoF)), 0
@@ -697,10 +671,12 @@ if __name__ == '__main__':
     l = kin.l_num[1:]  # cutting out satellite length l0
     b0 = kin.b0
     ang_b = kin.robot_base_ang(b0=b0)
-    t = Symbol('t')
+
     ang_s0 = np.array([0., 0., 0.])
     # q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
     q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., np.pi / 2, 0.])
+    a, b, c = kin.pos_vect(q0)
+
     Tm = kin.ab_vects(q0, 0,0,0,0,0,0)
     a, b, c = dyn.com_pos_vect(q0, 0, 0, 0, 0, 0, 0)
     J = dyn.jacobian_satellite(q0, 0, 0, 0, 0, 0, 0)

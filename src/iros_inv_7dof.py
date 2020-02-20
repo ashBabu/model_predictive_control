@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
-from eom_symbolic import Dynamics, Kinematics
+from EOM_test import Dynamics, Kinematics
 from sympy import *
 from fwd_kin import ForwardKinematics, MayaviRendering
 from mpl_toolkits.mplot3d import Axes3D
@@ -12,9 +12,13 @@ save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/'
 
 class InvKin:
 
-    def __init__(self, nDoF=3, robot='3DoF', b0=np.array([1.05, 1.05, 0])):
+    def __init__(self, nDoF=3, robot='3DoF', b0=np.array([1.05, 1.05, 0]), q=None):
         self.t = Symbol('t')
         self.nDoF = nDoF
+        if not isinstance(q, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            self.q = np.array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
+        else:
+            self.q = q
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             self.b0 = self.kin.b0
         else:
@@ -26,9 +30,9 @@ class InvKin:
         self.ang_s0 = self.kin.ang_s0
 
         self.ang_b0 = self.kin.robot_base_ang(b0=self.b0)
-        pv_com, pv_eef, _ = self.dyn.com_pos_vect(b0=self.b0)
-        self.pv_com_num = self.dyn.substitute(pv_com, m=self.m, l=self.l, I=self.I)
-        self.pv_eef_num = self.dyn.substitute(pv_eef, m=self.m, l=self.l, I=self.I)
+        # self.pv_com_num, self.pv_eef_num, _ = self.dyn.com_pos_vect(b0=self.b0)
+        # self.pv_com_num = self.dyn.substitute(pv_com, m=self.m, l=self.l, I=self.I)
+        # self.pv_eef_num = self.dyn.substitute(pv_eef, m=self.m, l=self.l, I=self.I)
         L = self.dyn.ang_momentum_conservation(b0=self.b0)
         self.L_num = self.dyn.substitute(L, m=self.m, l=self.l, I=self.I)
         j_omega, _, j_vel_eef = self.dyn.velocities_frm_momentum_conservation(b0=self.b0)
@@ -37,6 +41,11 @@ class InvKin:
         self.qd = self.kin.qd[3:]
         self.qd_s, self.qd_m = self.qd[0:3], self.qd[3:]
         self.lmda1, self.lmda2 = 2, 0.5  # optimization weights
+
+    def pos_vec(self, q, *args):
+        ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
+        pv_com, pv_eef, _ = self.dyn.com_pos_vect(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, self.b0)
+        return pv_com, pv_eef
 
     def discretize(self, start, goal, step_size=0.02):
         w = goal - start
