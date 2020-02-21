@@ -1,7 +1,19 @@
 # external imports
 import numpy as np
 from scipy.linalg import expm
+from scipy.spatial.transform import Rotation as R
 
+
+def rot_mat_3d(*args):
+    if isinstance(args, tuple):
+        ang_x, ang_y, ang_z = args[0]
+    else:
+        ang_x, ang_y, ang_z = args
+    Rx = R.from_rotvec(ang_x * np.array([1, 0, 0]))
+    Ry = R.from_rotvec(ang_y * np.array([0, 1, 0]))
+    Rz = R.from_rotvec(ang_z * np.array([0, 0, 1]))
+    Rx, Ry, Rz = Rx.as_matrix(), Ry.as_matrix(), Rz.as_matrix()
+    return Rx @ Ry @ Rz
 
 def nullspace_basis(A):
     """

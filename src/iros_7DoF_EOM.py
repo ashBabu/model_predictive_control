@@ -1,12 +1,17 @@
+"""
+paper: Resolved Motion Rate Control of Space Manipulators with Generalized Jacobian Matrix, IEEE TRo
+Author: Ash Babu
+"""
 import numpy as np
+import matplotlib.pyplot as plt
+import pickle
 from sympy import *
 from sympy.physics.mechanics import *
 from sympy.tensor.array import Array
-import matplotlib.pyplot as plt
-# from mpl_toolkits import mplot3d
+from utils import rot_mat_3d
+from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=2)
 # init_printing()
-import pickle
 
 
 class Kinematics:
@@ -124,60 +129,63 @@ class Kinematics:
         return ang_b
 
     def fwd_kin_spacecraft(self, b0=None):
-        # ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
-        # j_T_s = transformation from spacecraft COM to inertial
-        # j_T_b = transformation from robot_base to inertial
+        # s_T_b = transformation from robot_base to spacecraft
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
         ang_b = self.robot_base_ang(b0=b0)
-        # j_T_s = self.euler_transformations([ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz])
-        s_T_b = self.euler_transformations(
-            [ang_b[0], ang_b[1], ang_b[2], b0[0], b0[1], b0[2]])  # a constant 4 x 4 matrix
-        # j_T_b = j_T_s @ s_T_b  # transformation from inertial to robot base
+        s_T_b = self.euler_transformations([ang_b[0], ang_b[1], ang_b[2], b0[0], b0[1], b0[2]])  # a constant 4 x 4 matrix
         return s_T_b
 
     def fwd_kin_full(self, q, b0=None):
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.b0
         T_joint, _ = self.fwd_kin_manip(q)
-        # ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
         s_T_b = self.fwd_kin_spacecraft(b0=b0)
-        s_T_full = np.zeros((T_joint.shape[0]+s_T_b.shape[0], 4, 4)) # j_T_full is n x 4 x 4 transf. matrices # j_T_full = [s_T_b, s_T_j1, s_T_j2,..., s_T_ee]
+        s_T_full = np.zeros((T_joint.shape[0]+1, 4, 4)) # j_T_full is n x 4 x 4 transf. matrices
+        # j_T_full = [s_T_b, s_T_j1, s_T_j2,..., s_T_ee]
         # containing satellite, robot base and each of the joint CS
         s_T_full[0, :, :] = s_T_b
         for i in range(1, 2+self.nDoF):
             s_T_full[i, :, :] = s_T_b @ T_joint[i - 1]
         return s_T_full
 
-    def pos_vect(self, q, b0=None):  # position vectors of COM of each link wrt spacecraft CS, {s}
-        # {s}, {ji} are respectively the CS of spacecraft at its COM and joint CS of the manipulator
-        # ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+    def pos_vect(self, q, b0=None):
+        """
+        position vectors of COM of each link wrt spacecraft CS, {s}
+        {s}, {ji} are respectively the CS of spacecraft at its COM and joint CS of the manipulator
+        """
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.b0
         s_T_full = self.fwd_kin_full(q, b0=b0)
-        pv_origins = np.zeros((3, self.nDoF+3))  # position vector of the origins of all coordinate system wrt satellite {s}
-        pv_com = np.zeros((3, self.nDoF+1))  # position vector of the COM of spacecraft + each of the links wrt satellite {s}
-
-        for i in range(1, self.nDoF+3):  # includes end-eff origin
-            pv_origins[:, i] = s_T_full[i][0:3, 3]  # [s_r_b, s_r_j1, ...s_r_eef]
-        kk = 1
-        pv_com[:, 0] = pv_origins[:, 0]
-        j_com_vec, ll = np.zeros((3, self.nDoF)), 0
-        for i in range(1, pv_origins.shape[1]-1):
+        ax = plt.axes(projection='3d')
+        # ax.scatter(0, 0, 0)  # just to know where (0, 0, 0) is
+        def plott_check():  # plots the origin of the joints from satellite co-ordinate system which is at (0, 0, 0)
+            for i in range(s_T_full.shape[0]):
+                x, y, z = s_T_full[i, 0, 3], s_T_full[i, 1, 3], s_T_full[i, 2, 3]
+                ax.scatter(x, y, z)
+                ax.set_zlim(0, 2)
+                plt.pause(0.01)
+        # plott_check()
+        pv_origins = np.zeros((3, s_T_full.shape[0]))  # pos vector of the origins of all CS wrt satellite {s}
+        pv_com = []
+        for i in range(0, s_T_full.shape[0]):  # includes end-eff origin
+            pv_origins[:, i] = s_T_full[i, 0:3, 3]  # [s_r_b, s_r_j1, ...s_r_eef]
+        j_com_vec = []
+        kk = 0
+        for i in range(0, pv_origins.shape[1]-1):
             v = pv_origins[:, i+1] - pv_origins[:, i]
             if v[0] or v[1] or v[2]:
-                pv_com[:, kk] = pv_origins[:, i] + 0.5 * v  # assuming COM exactly at the middle of the link
-                j_com_vec[:, ll] = 0.5 * v  # vector from joint i to COM of link i described in inertial.
-                # vector 'a' in Umeneti and Yoshida
+                pv_com.append(pv_origins[:, i] + 0.5 * v)  # assuming COM exactly at the middle of the link
+                j_com_vec.append(0.5 * v)  # vector from joint i to COM of link i described in spacecraft CS.
+                # vector 'a' in Umeneti and Yoshida (but not wrt inertial)
+                # ax.scatter(pv_com[kk][0], pv_com[kk][1], pv_com[kk][2], marker="v")  # to plot the COM except satellite
                 kk += 1
-                ll += 1
-        return pv_origins, pv_com, j_com_vec
+        return pv_origins, np.array(pv_com).T, np.array(j_com_vec).T
 
-    def rots_from_inertial(self, q, *args, b0=None):
+    def rots_from_inertial(self, q, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
-        j_T_full = self.fwd_kin_full(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
+        j_T_full = self.fwd_kin_full(q, b0=b0)
         rot_full = list()
         for i in range(len(j_T_full)):
             rot_full.append(j_T_full[i][0:3, 0:3])  # rotation matrix of spacecraft COM + each joint CS wrt inertial
@@ -185,17 +193,19 @@ class Kinematics:
             # rb = robot base or joint 0 {j0}
         return rot_full
 
-    def ab_vects(self,  q, *args, com_vec=None, b0=None):
+    def ab_vects(self, ang_s, q, com_vec=None, b0=None):
+        """
+        Note: The vectors are transformed to inertial in here
+        As described in the paper, Here 'a' = vector from joint i to COM of link i wrt inertial
+            # 'b' = vector from COM of link i to joint i+1 wrt inertial
+        """
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.b0
-        ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
-        j_T_full = self.fwd_kin_full(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
-        _, _, j_com_vec = self.pos_vect(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
+        _, _, j_com_vec = self.pos_vect(q, b0=b0)
         if not isinstance(com_vec, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
-            # Here 'a' = vector from joint i to COM of link i wrt inertial
-            # 'b' = vector from COM of link i to joint i+1 wrt inertial
-            a = j_com_vec
-            b0 = j_T_full[0][0:3, 0:3] @ b0
+            R = rot_mat_3d(ang_s)
+            a = R @ j_com_vec   # transformation to inertial of a
+            b0 = R @ b0  # transformation to inertial of b
             b = np.hstack((b0.reshape(-1, 1), a))
         else:
             a, b = com_vec
@@ -348,13 +358,21 @@ class Dynamics:
             h += 1
         return pv_com, pv_eef, pv_origin
 
-    ##########################################
-    def spacecraft_com_num(self, ang_s, q):
-        r_s0 = self.dyn.substitute(self.pv_com_num[:, 0], ang_s0=ang_s, q0=q)
-        r_s0 = np.array(r_s0).astype(np.float64)
-        r_s0 = r_s0.reshape((3, 1))
-        return r_s0
-    #########################################
+    def spacecraft_com_pos(self, ang_s, q, b0=None):
+        """
+        The spacecraft CG position is defined fully when the angular displacement (Euler angles) and manipulator joint
+        angles are specified. Umentani and Yoshida's 'Resolved motion rate control' paper
+        Summation m_i r_i = 0 (The CG of the whole spacecraft manipulator arm system is the origin of inertial CS) and
+        r_i - r_(i-1) = a_i + b_(i-1)
+        Solving the above simultaneous equation gives the CG position of spacecraft (r_s) wrt inertial.
+        """
+        if not isinstance(b0, (list, tuple, np.ndarray)):
+            b0 = self.kin.b0
+        k11 = self.mass_frac()
+        a, b = self.kin.ab_vects(ang_s, q, b0=b0)
+        for i in range(a.shape[1]):
+            r_s = k11[i] * (b[:, i] + a[:, i])
+        return r_s
 
     def jacobian_satellite(self, q, *args, b0=None):
         ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
@@ -374,7 +392,7 @@ class Dynamics:
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
         _, pv_eef, pv_origin = self.com_pos_vect(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
-        j_T_full = self.kin.fwd_kin_full(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)  # [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
+        j_T_full = self.kin.fwd_kin_full(q, b0=b0)  # [0_T_s, 0_T_b, 0_T_j1, 0_T_j2,..., 0_T_ee]
         J_manip = np.zeros((6, self.nDoF))  # initilizing jacobian
         h = list()
         for i in range(1, pv_origin.shape[1]-1):
@@ -674,13 +692,10 @@ if __name__ == '__main__':
 
     ang_s0 = np.array([0., 0., 0.])
     # q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
-    q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., np.pi / 2, 0.])
+    q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0, 0.])
     a, b, c = kin.pos_vect(q0)
 
-    Tm = kin.ab_vects(q0, 0,0,0,0,0,0)
-    a, b, c = dyn.com_pos_vect(q0, 0, 0, 0, 0, 0, 0)
-    J = dyn.jacobian_satellite(q0, 0, 0, 0, 0, 0, 0)
-    Jm = dyn.geometric_jacobian_manip(q0, 0,0,0,0,0,0)
+    s = dyn.spacecraft_com_pos(ang_s0, q0)
     Ls, Lm = dyn.ang_moment_parsing(numeric=False, b0=b0)
     print('found Ls, Lm')
     Ls_d, Lm_d = diff(Ls, t), diff(Lm, t)
