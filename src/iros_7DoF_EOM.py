@@ -326,26 +326,25 @@ class Dynamics:
             k11[j-1] = (-1 / M) * np.sum(self.mass[j:])
         return k11
 
-    def com_pos_vect(self, q, *args, b0=None):
-        ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz = args
+    def com_pos_vect(self, q, ang_s, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
         # rs, r1, r2 etc are pv from inertial to COM of spacecraft, link1, lin2, ...
         k11 = self.mass_frac()
-        aa, bb = self.kin.ab_vects(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
+        aa, bb = self.kin.ab_vects(q, ang_s, b0=b0)
         r0 = np.zeros(3)
-        pv_com = np.zeros((3, self.nDoF + 1))  # matrix of pos vec frm system COM to COM of spacecraft + each of the links
+        pv_com = []
         for i in range(self.nDoF):
             r0 += k11[i] * (bb[:, i] + aa[:, i])
-        # r0 = r0.reshape(-1, 1)
-        pv_com[:, 0] = r0
+        pv_com.append(r0)
         for i in range(1, self.nDoF + 1):
-            pv_com[:, i] = pv_com[:, i - 1] + bb[:, i - 1] + aa[:, i - 1]  # # [j_rs, j_r1, j_r2, ...]
+            tp = pv_com[i - 1] + bb[:, i - 1] + aa[:, i - 1]   # [j_rs, j_r1, j_r2, ...]
+            pv_com.append(tp)
         pv_eef = pv_com[:, -1] + bb[:, -1]  # pos vec of eef wrt inertial = last entry of pv_origin + bb
         pv_origin = np.zeros((3, self.nDoF + 3))  # includes eef origin
         pv_origin[:, 0] = r0
         pv_origin[:, 1] = pv_origin[:, 0] + bb[:, 0]
-        pv_orig_kin, _, _ = self.kin.pos_vect(q, ang_xs, ang_ys, ang_zs, r_sx, r_sy, r_sz, b0=b0)
+        pv_orig_kin, _, _ = self.kin.pos_vect(q, b0=b0)
         h, ia, ib = 1, 0, 1
         for i in range(2, pv_orig_kin.shape[1]):
             v = pv_orig_kin[:, h+1] - pv_orig_kin[:, h]
@@ -370,8 +369,9 @@ class Dynamics:
             b0 = self.kin.b0
         k11 = self.mass_frac()
         a, b = self.kin.ab_vects(ang_s, q, b0=b0)
+        r_s = np.zeros(3)
         for i in range(a.shape[1]):
-            r_s = k11[i] * (b[:, i] + a[:, i])
+            r_s += k11[i] * (b[:, i] + a[:, i])
         return r_s
 
     def jacobian_satellite(self, q, *args, b0=None):
