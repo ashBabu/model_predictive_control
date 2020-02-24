@@ -2,7 +2,7 @@ import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
 from EOM_test import Dynamics, Kinematics
-from sympy import *
+# from sympy import *
 from fwd_kin import ForwardKinematics, MayaviRendering
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=3)
@@ -13,13 +13,13 @@ save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_data_inv_kin/'
 class InvKin:
 
     def __init__(self, nDoF=3, robot='3DoF', b0=np.array([1.05, 1.05, 0]), q=None):
-        self.t = Symbol('t')
+        # self.t = Symbol('t')
         self.nDoF = nDoF
-        if not isinstance(q, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
-            self.q = np.array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
+        if not isinstance(q, (list, tuple, np.ndarray)):
+            self.q = np.array([0., 5*np.pi/4, 0., 0., 0., np.pi/2, 0.])
         else:
             self.q = q
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             self.b0 = self.kin.b0
         else:
             self.b0 = b0
@@ -54,11 +54,11 @@ class InvKin:
         discretized = np.outer(np.arange(1, n), step) + start
         return discretized
 
-    def spacecraft_com_num(self, ang_s, q):
-        r_s0 = self.dyn.substitute(self.pv_com_num[:, 0], ang_s0=ang_s, q0=q)
-        r_s0 = np.array(r_s0).astype(np.float64)
-        r_s0 = r_s0.reshape((3, 1))
-        return r_s0
+    # def spacecraft_com_num(self, ang_s, q):
+    #     r_s0 = self.dyn.substitute(self.pv_com_num[:, 0], ang_s0=ang_s, q0=q)
+    #     r_s0 = np.array(r_s0).astype(np.float64)
+    #     r_s0 = r_s0.reshape((3, 1))
+    #     return r_s0
 
     def manip_eef_pos_num(self, ang_s, q):
         eef_pos = self.dyn.substitute(self.pv_eef_num, ang_s0=ang_s, q0=q)
