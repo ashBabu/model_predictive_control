@@ -27,7 +27,6 @@ class ForwardKin:
         self.size = [(size, size, size)]
         self.DHPlot = DH_plotter(nDoF=self.nDoF, robot=robot)
         self.satPlot = SatellitePlotter()
-        # T_joint, Ti = self.DH.robot_DH_matrix(q1)
 
     def robot_base_ang(self, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray)):
