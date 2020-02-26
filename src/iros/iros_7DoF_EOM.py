@@ -471,6 +471,7 @@ class Dynamics:
         J = Jm - (Js @ np.linalg.solve(Is, Im))
         return J
 
+    """
     def velocities(self, q=None, ang_s=None, q_dot=None, b0=None):  # Need to update
         if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.b0
@@ -734,6 +735,7 @@ class Dynamics:
         t = np.insert(t, 0, 0)
         qdm_numeric = np.insert(qdm_numeric, 0, np.zeros(3), axis=1)
         return r_s, ang_s, q, qdm_numeric, t, pv_com_num
+    """
 
 
 class Solver(object):
@@ -758,7 +760,6 @@ class Solver(object):
 
 
 if __name__ == '__main__':
-
     nDoF = 7
     robot ='7DoF'
     kin = Kinematics(nDoF=nDoF, robot=robot)
@@ -771,64 +772,14 @@ if __name__ == '__main__':
     ang_b = kin.robot_base_ang(b0=b0)
 
     ang_s0 = np.array([0., 0., 0.])
-    # q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
     q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0, 0.])
+    # q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
     # a, b, c = kin.pos_vect(q0)
-
     # s = dyn.spacecraft_com_pos(ang_s=ang_s0, q=q0)
     # a, b, c = dyn.pos_vect_inertial(q=q0, ang_s=ang_s0)
     J_s, Jac_sat = dyn.geometric_jacobian_satellite(q=q0, ang_s=ang_s0, b0=b0)
     Jac_manip = dyn.geometric_jacobian_manip(q=q0, ang_s=ang_s0, b0=b0)
     a = dyn.momentOfInertia_transform(q=q0, ang_s=ang_s0, b0=b0)
     gen_jacob = dyn.generalized_jacobian(q=q0, ang_s=ang_s0, b0=b0)
-    a, b, c = dyn.velocities(q=q0, ang_s=ang_s0, q_dot=0, b0=b0)
-    Ls, Lm = dyn.ang_moment_parsing(numeric=False, b0=b0)
-    print('found Ls, Lm')
-    Ls_d, Lm_d = diff(Ls, t), diff(Lm, t)
-    print('found Ls_d, Lm_d')
-    # deriv = dyn.spacecraft_acceleration(m=m, l=l, I=I)
+    # a, b, c = dyn.velocities(q=q0, ang_s=ang_s0, q_dot=0, b0=b0)
 
-    # M_num = dyn.substitute(M, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
-    # C_num = dyn.substitute(C, m=m, l=l, I=I, ang_s0=ang_s0, q0=q0)
-
-    q, qd = kin.q[3:], kin.qd[3:]
-    alpha, beta, gamma = symbols('alpha beta gamma')
-    alpha_d, beta_d, gamma_d = symbols('alpha_d beta_d gamma_d')
-    theta_1, theta_2, theta_3 = symbols('theta_1 theta_2 theta_3')
-    theta_1d, theta_2d, theta_3d = symbols('theta_1d theta_2d theta_3d')
-    ang_s = [alpha, beta, gamma]
-    omega_s = [alpha_d, beta_d, gamma_d]
-    theta = [theta_1, theta_2, theta_3]
-    theta_d = [theta_1d, theta_2d, theta_3d]
-
-    Ls_t = dyn.substitute(Ls, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
-    print('found Ls_t')
-    Lm_t = dyn.substitute(Lm, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
-    print('found Lm_t')
-    Ls_dt = dyn.substitute(Ls_d, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
-    print('found Ls_dt')
-    Lm_dt = dyn.substitute(Lm_d, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
-    print('found Lm_dt')
-
-    with open('Ls.pickle', 'wb') as Lsw:
-        Lsw.write(pickle.dumps(Ls_t))
-    with open('Lm.pickle', 'wb') as Lmw:
-        Lmw.write(pickle.dumps(Lm_t))
-    with open('Ls_d.pickle', 'wb') as Lsdw:
-        Lsdw.write(pickle.dumps(Ls_dt))
-    with open('Lm_d.pickle', 'wb') as Lmdw:
-        Lmdw.write(pickle.dumps(Lm_dt))
-
-    M, C = dyn.get_dyn_para(b0=b0)
-    print('found M, C')
-    Mt = dyn.substitute(M, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
-    print('found Mt')
-    Ct = dyn.substitute(C, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=theta_d)
-    print('found Ct')
-
-    with open('MassMat_sym.pickle', 'wb') as outM:
-        outM.write(pickle.dumps(Mt))
-
-    with open('Corioli_sym.pickle', 'wb') as outC:
-        outC.write(pickle.dumps(Ct))
-    print('done')

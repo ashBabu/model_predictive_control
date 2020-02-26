@@ -232,7 +232,7 @@ if __name__ == '__main__':
     robot = '7DoF'
     IK = InvKin(nDoF=nDoF, robot=robot, b0=b0)
     asd = '20'
-    target_loc = np.array([3, -2.5, 0.25])
+    target_loc = np.array([-3, 2.5, 0.0])
     q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])
     ang_s0 = IK.kin.ang_s0
     r_s0 = IK.dyn.spacecraft_com_pos(ang_s=ang_s0, q=q0, b0=b0)
@@ -259,13 +259,7 @@ if __name__ == '__main__':
     q = np.c_[q0, Q]
     r_s = np.c_[r_s0, r_s]
     ang_s = np.c_[ang_s0, A]
-    pv_cg = list()
-    for i in range(r_s.shape[1]):
-        pv_com, _, _ = IK.dyn.pos_vect_inertial(q=q[:, i], ang_s=ang_s[:, i], b0=b0)
-        pv_cg.append(pv_com)
-    temp = np.array(pv_cg)
-    rs = temp[:, :, 0].T
-    # IK.get_plts(A, Q)  # to get plots
+    IK.get_plts(A, Q)  # to get plots
 
     plt.figure()
     ax = plt.axes(projection='3d')
