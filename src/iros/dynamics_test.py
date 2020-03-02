@@ -477,6 +477,46 @@ class Dynamics:
             parm = msubs(parm, {self.kin.r_sx: r_s0[0], self.kin.r_sy: r_s0[1], self.kin.r_sz: r_s0[2]})
         return parm.evalf()
 
+    def get_symbols(self):
+        n = self.nDoF+1
+        alpha, beta, gamma = symbols('alpha beta gamma')  # spacecraft angles
+        alphaDot, betaDot, gammaDot = symbols('alphaDot betaDot gammaDot')  # spacecraft velocities
+        theta = symbols('theta1:8')  # joint angles assuming 7DoF
+        thetaDot = symbols('thetaDot1:8')  # joint velocities
+        ang_s = [alpha, beta, gamma]
+        omega_s = [alphaDot, betaDot, gammaDot]
+        return theta, thetaDot, ang_s, omega_s
+
+    def get_dyn_para2(self, b0=None, symbolic=False):
+        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+            b0 = self.kin.b0
+        theta, thetaDot, ang_s, omega_s = self.get_symbols()
+        I = self.momentOfInertia_transform(b0=b0, symbolic=symbolic)
+        I_sym = []
+        for i in range(len(I)):
+            I_sym.append(self.substitute(I[i], ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=thetaDot))
+        w, com_vel, _ = self.velocities_frm_momentum_conservation(b0=b0, symbolic=symbolic)
+        omega_sym = self.substitute(w, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=thetaDot)
+        vel_com_sym = self.substitute(com_vel, ang_s0=ang_s, q0=theta, omega_s=omega_s, dq=thetaDot)
+        print('found vel_com_sym')
+        K = 0
+        for i in range(self.nDoF + 1):
+            K += 0.5*self.mass[i]*vel_com_sym[:, i].dot(vel_com_sym[:, i]) +\
+                 0.5*omega_sym[:, i].dot(I_sym[i] @ omega_sym[:, i])
+        print('Found KE')
+        ang_s.extend(theta)
+        omega_s.extend(thetaDot)
+        temp = transpose(Matrix([[K]]).jacobian(omega_s))
+        M = temp.jacobian(omega_s)  # .applyfunc(trigsimp)  # Mass matrix
+        print('Found Mass Matrix')
+        C = temp.jacobian(ang_s) * Matrix(omega_s) - transpose(Matrix([[K]]).jacobian(ang_s))  # Coriolis vector
+        print('Found coriolis')
+        return M, C
+
+
+
+
+
     def ang_moment_parsing(self, m=None, l=None, I=None, b0=None, ang_s0=None, q0=None, numeric=True):
         if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
             b0 = self.kin.b0
@@ -687,11 +727,14 @@ if __name__ == '__main__':
     # Tj, Ti = kin.fwd_kin_manip(symbolic=symbolic)
     # a, b, c = kin.position_vectors(b0=kin.b0, symbolic=symbolic)
     # a, b = kin.ab_vectors(b0=kin.b0, symbolic=symbolic)
-    a, b, c = kin.velocities(b0=kin.b0, symbolic=symbolic)
-    M, C = dyn.get_dyn_para(b0=kin.b0, symbolic=symbolic)
-    print('MassMatrix', M)
+    # a, b, c = kin.velocities(b0=kin.b0, symbolic=symbolic)
+    M, C = dyn.get_dyn_para2(b0=kin.b0, symbolic=symbolic)
+    np.save('MassMatrix.npy', M, allow_pickle=True)
+    np.save('CoriolisVector.npy', C, allow_pickle=True)
+
+    # print('MassMatrix', M)
     print('#############################################')
-    print('Coriolis', C)
+    # print('Coriolis', C)
 
     # m, I = dyn.mass, dyn.I_num
     # l = kin.l_num[1:]  # cutting out satellite length l0

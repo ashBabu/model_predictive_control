@@ -53,6 +53,10 @@ class Utilities:
         return curve
 
     def quadratic_bezier(self, start, b, goal):
+        if isinstance(start, list):
+            start = np.array(start)
+        if isinstance(goal, list):
+            goal = np.array(goal)
         t = np.linspace(0, 1, 50)
         curve = np.zeros((3, len(t)))
         for i, t in enumerate(t):

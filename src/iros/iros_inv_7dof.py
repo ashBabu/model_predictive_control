@@ -1,9 +1,11 @@
+import os
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
 from iros_7DoF_EOM import Dynamics, Kinematics
 from iros_forward_kin import ForwardKin
-import os
+from scipy.spatial.transform import Rotation as R
+from utils import Utilities
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=3)
 
@@ -150,26 +152,29 @@ class InvKin:
         #                           args=eef_des_pos, iprint=0)
         return results.x
 
-    def call_optimize(self, target, ang_s0, q0):
+    def call_optimize(self, ang_s0=np.zeros(3), q0=None, target=np.array([-3, 2.5, 0.0]), ref_path=None):
+        if isinstance(ref_path, (list, tuple, np.ndarray)):
+            points = ref_path
+        else:
+            points = self.path(target, q0)  # q = initial joint values to compute the position of end_eff
         dq0 = np.random.randn(self.nDoF) * 0.001
-        points = self.path(target, q0)  # q = initial joint values to compute the position of end_eff
         pr, pc = points.shape
-        q, ang_s = np.zeros((self.nDoF, pr + 1)), np.zeros((3, pr + 1))
+        q, ang_s = np.zeros((self.nDoF, pc + 1)), np.zeros((3, pc + 1))
         q[:, 0], ang_s[:, 0] = q0, ang_s0
         J = self.dyn.generalized_jacobian(ang_s=ang_s0, q=q0)
-        Ls, Lm = self.dyn.momentOfInertia_transform(ang_s=ang_s0, q=q0)
+        Is, Im = self.dyn.momentOfInertia_transform(ang_s=ang_s0, q=q0)
         r_eef_current = self.manip_eef_pos(ang_s0, q0)
-        for i in range(1, pr+1):
-            dq = self.inv_kin(dq0, r_eef_current, points[i-1, :], J)
+        for i in range(1, pc+1):
+            dq = self.inv_kin(dq0, r_eef_current, points[:, i-1], J)
             q[:, i] = q[:, i - 1] + dq
-            ang_s[:, i] = ang_s[:, i - 1] - np.linalg.solve(Ls, Lm) @ dq
+            ang_s[:, i] = ang_s[:, i - 1] - np.linalg.solve(Is, Im) @ dq
             ang_s0, q0, dq0 = ang_s[:, i], q[:, i], dq
             J = self.dyn.generalized_jacobian(ang_s=ang_s0, q=q0)
-            Ls, Lm = self.dyn.momentOfInertia_transform(ang_s=ang_s0, q=q0)
+            Is, Im = self.dyn.momentOfInertia_transform(ang_s=ang_s0, q=q0)
             r_eef_current = self.manip_eef_pos(ang_s0, q0)
         return ang_s, q
 
-    def animation(self, r_s, size, color, rot_ang, q, path, pv_com=None, ax=None,):
+    def animation(self, r_s, size, rot_ang, q, path, color='green', pv_com=None, ax=None,):
         a = 3.1
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
         if not ax:
@@ -204,8 +209,8 @@ class InvKin:
                 ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
             for p, s, c in zip(temp, size, color):
                 self.fwd_kin.satellite_namipulator(rot_ang=rot_ang[:, i], q=qi, rs=p, size=s, ax=ax, b0=self.b0)
-                ax.scatter(path[:, 0], path[:, 1], path[:, 2], 'r-', lw=4)
-                ax.view_init(elev=85., azim=-58)
+                ax.scatter(path[0, :], path[1, :], path[2, :], 'r-', lw=4)
+                # ax.view_init(elev=85., azim=-58)
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
@@ -213,41 +218,81 @@ class InvKin:
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inv_kinematics_direct/%02d.png" % i)
             # print('hi')
 
+    def get_circle(self, scale=0.1, start=None, goal=None):
+        angles = np.linspace(0, 2 * np.pi, 30)
+        circ = np.zeros((3, angles.shape[0]))
+        center = start + 0.5 * (goal - start)
+        dir_vec = goal - start
+        """
+            A vector perpendicular to dir_vec has np.dot(dir_vec, perp_vec) = 0
+            Let perp_vec = (a, b, c) implies a x + b y + c z = 0. Put arbitrary values for a, b 
+            which means c = -(1/z) * (a x + b y) 
+            """
+        a, b = 1, 1
+        c = -(1 / dir_vec[2]) * (dir_vec[0] + dir_vec[1])
+        perp_vec = np.array([a, b, c])
+
+        for i, ang in enumerate(angles):
+            rot = R.from_rotvec(ang * dir_vec)
+            circ[:, i] = scale * (rot.as_dcm() @ perp_vec) + center
+        return circ
+
     def get_plts(self, A, Q):
-        plt.figure(3)
+        plt.figure()
         plt.plot(A[0, :], label='satellite_x_rotation')
         plt.plot(A[1, :], label='satellite_y_rotation')
         plt.plot(A[2, :], label='satellite_z_rotation')
         plt.legend()
 
-        plt.figure(4)
+        plt.figure()
         for i in range(Q.shape[0]):
             plt.plot(Q[i, :], label='q%d' % i)
         plt.legend()
-        print('hi')
 
 
 if __name__ == '__main__':
     nDoF, b0 = 7, np.array([1.05, 1.05, 0])
     robot = '7DoF'
     IK = InvKin(nDoF=nDoF, robot=robot, b0=b0)
-    asd = '20'
-    target_loc = np.array([-3, 2.5, 0.0])
-    q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])
-    ang_s0 = IK.kin.ang_s0
-    r_s0 = IK.dyn.spacecraft_com_pos(ang_s=ang_s0, q=q0, b0=b0)
-    points = IK.path(target_loc, q0)
+    util = Utilities()
+    target_loc = np.array([[-3, 2.5, 0.0], [-3, 1.2, 0.0], [-2, 1.5, 1]])  # end-effector target location
+    q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])  # initial joint angles
+    ang_s0 = IK.kin.ang_s0  # initial spacecraft angles
+    r_s0 = IK.dyn.spacecraft_com_pos(ang_s=ang_s0, q=q0, b0=b0)  # initial position vector of spacecraft CG wrt inertial
+    # points = IK.path(target_loc, q0)  # straight line path (x, y, z) from current to target location
+    start = IK.manip_eef_pos(ang_s0, q0)  # manipulator end-effector position for the ang_s0 and q0
 
-    # """
-    f1 = 1  # int(input('Enter 1: for optimized result 2: analytical'))
-    if f1 == 1:
-        A, Q = IK.call_optimize(target_loc, ang_s0, q0)  # optimization method A = spacecraft angles and Q = joint angles
-    else:
-        A, Q = IK.call_dir(target_loc, q0, ang_s0)  # direct method
-    r_s = np.zeros((3, A.shape[1]))
-    for i in range(A.shape[1]):
-        r_s[:, i] = IK.dyn.spacecraft_com_pos(ang_s=A[:, i], q=Q[:, i], b0=b0)
-    # """
+    def call_plots(spacecraftAngles=None, jointAngles=None, spacecraftPosVec=None, ref_path=None):
+        # IK.get_plts(spacecraftAngles, jointAngles)  # to get plots
+        plt.figure()
+        ax = plt.axes(projection='3d')
+        IK.animation(spacecraftPosVec, IK.kin.size, spacecraftAngles, jointAngles, ref_path, ax=ax)  # animation
+    """
+    To generate reference trajectories from the current to target position, quadratic bezier curves are used. They
+    require start, goal and another point in between them. This is calculated as the points on the circumference of 
+    circle whose center is at the midpoint between start and goal 
+    """
+    plott = True
+    for target in target_loc:
+        circ1 = IK.get_circle(start=start, goal=target)
+        spacecraft_angles, joint_angles = [], []
+        endEff_posVec, spacecraft_postionVec = [], []
+        for jk, point in enumerate(circ1.T):
+            ref_path = util.quadratic_bezier(start, point, target)
+            A, Q = IK.call_optimize(ang_s0=ang_s0, q0=q0, ref_path=ref_path)
+            Q = np.c_[q0, Q]
+            A = np.c_[ang_s0, A]
+            spacecraft_angles.append(A)
+            joint_angles.append(Q)
+            r_s = np.zeros((3, A.shape[1]))
+            end_eff_pos = np.zeros((3, Q.shape[1]))
+            for i in range(A.shape[1]):
+                r_s[:, i] = IK.dyn.spacecraft_com_pos(ang_s=A[:, i], q=Q[:, i], b0=b0)
+                end_eff_pos[:, i] = IK.manip_eef_pos(A[:, i], Q[:, i])
+            endEff_posVec.append(end_eff_pos)
+            spacecraft_postionVec.append(r_s)
+            if plott and jk % 26 == 0:
+                call_plots(spacecraftAngles=A, jointAngles=Q, spacecraftPosVec=r_s, ref_path=ref_path)
 
     """
     A, Q, points, r_s = np.load(save_dir+'/save_data_inv_kin/data/spacecraft_angs_inv_kin1.npy', allow_pickle=True),\
@@ -255,20 +300,6 @@ if __name__ == '__main__':
                         np.load(save_dir+'/save_data_inv_kin/data/ref_path_xyz1.npy', allow_pickle=True),\
                         np.load(save_dir+'/save_data_inv_kin/data/spacecraft_com_inv_kin1.npy', allow_pickle=True)
     """
-
-    q = np.c_[q0, Q]
-    r_s = np.c_[r_s0, r_s]
-    ang_s = np.c_[ang_s0, A]
-    IK.get_plts(A, Q)  # to get plots
-
-    plt.figure()
-    ax = plt.axes(projection='3d')
-    IK.animation(r_s, IK.kin.size, 'green', A, Q, points, ax=ax)  # animation
-
-    end_eff_pos = np.zeros((3, q.shape[1]))
-    for i in range(q.shape[1]):
-        end_eff_pos[:, i] = IK.manip_eef_pos(ang_s[:, i], q[:, i])
-
     """
     np.save(save_dir+'/save_data_inv_kin/data/joint_angs_inv_kin1.npy', q, allow_pickle=True),
     np.save(save_dir+'/save_data_inv_kin/data/spacecraft_com_inv_kin1.npy', r_s, allow_pickle=True),

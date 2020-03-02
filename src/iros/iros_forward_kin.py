@@ -100,7 +100,7 @@ class ForwardKin:
                     ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
                 for p, s, c in zip(temp, size, color):
                     self.satellite_namipulator(rot_ang=rot_ang[:, i], q=qi, rs=p, size=s, ax=ax, b0=b0)
-                plt.pause(0.05)
+                # plt.pause(0.05)
         else:
             temp = [(rs[0], rs[1], rs[2])]
             plt.cla()
