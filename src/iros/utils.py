@@ -111,6 +111,20 @@ class Utilities:
             T_joint[i, :, :] = t
         return T_joint, Ti
 
+    def plot_settings(self):
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        ax.set_aspect('equal')
+        fig.set_facecolor('black')
+        ax.set_facecolor('black')
+        ax.grid(False)
+        ax.w_xaxis.pane.fill = False
+        ax.w_yaxis.pane.fill = False
+        ax.w_zaxis.pane.fill = False
+        # X1, Y1, arr = self.image_draw('space.png')
+        # ax.plot_surface(X1, Y1, np.ones(X1.shape), rstride=1, cstride=1, facecolors=arr)
+        plt.axis('off')
+
 
 if __name__ == '__main__':
     save_dir = os.path.dirname(os.path.abspath(__file__))

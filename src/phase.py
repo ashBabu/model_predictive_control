@@ -2,30 +2,23 @@ import numpy as np
 from scipy.interpolate import make_interp_spline
 
 
-class PhaseGenerator():
-
+class PhaseGenerator:
     def __init__(self):
         return
 
     def phase(self, time):
-
         # Base class...
         return
-
 
 
 class LinearPhaseGenerator(PhaseGenerator):
 
     def __init__(self, phaseVelocity = 1.0):
-
         PhaseGenerator.__init__(self)
         self.phaseVelocity = phaseVelocity
 
-
     def phase(self, time):
-
         phase = np.array(time) * self.phaseVelocity
-
         return phase
 
 class SmoothPhaseGenerator(PhaseGenerator):

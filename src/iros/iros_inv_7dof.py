@@ -20,10 +20,7 @@ class InvKin:
             self.q = np.array([0., 5*np.pi/4, 0., 0., 0., np.pi/2, 0.])
         else:
             self.q = q
-        if not isinstance(b0, (list, tuple, np.ndarray)):
-            self.b0 = self.kin.b0
-        else:
-            self.b0 = b0
+        self.b0 = b0
         self.kin = Kinematics(nDoF=self.nDoF, robot=robot)
         self.dyn = Dynamics(nDoF=self.nDoF, robot=robot)
         self.fwd_kin = ForwardKin(nDoF=self.nDoF, robot=robot)
@@ -157,6 +154,9 @@ class InvKin:
             points = ref_path
         else:
             points = self.path(target, q0)  # q = initial joint values to compute the position of end_eff
+        if points.ndim == 2:
+            if points.shape[0] > 3:
+                points = points.T
         dq0 = np.random.randn(self.nDoF) * 0.001
         pr, pc = points.shape
         q, ang_s = np.zeros((self.nDoF, pc + 1)), np.zeros((3, pc + 1))
@@ -255,7 +255,10 @@ if __name__ == '__main__':
     robot = '7DoF'
     IK = InvKin(nDoF=nDoF, robot=robot, b0=b0)
     util = Utilities()
-    target_loc = np.array([[-3, 2.5, 0.0], [-3, 1.2, 0.0], [-2, 1.5, 1]])  # end-effector target location
+    target_loc = np.array([[-3, 2.5, 0.0], [-3, 1.2, 0.0], [-2, 1.5, 1], [-2, 2.5, -1], [-2.5, 2., -0.5],
+                           [-1.5, 2., 0.5], [-2., 1., -0.75], [-2, 1.0, -1.5], [-1.5, 2., 2.]])
+    # end-effector target location
+    # target_loc = np.array([])
     q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])  # initial joint angles
     ang_s0 = IK.kin.ang_s0  # initial spacecraft angles
     r_s0 = IK.dyn.spacecraft_com_pos(ang_s=ang_s0, q=q0, b0=b0)  # initial position vector of spacecraft CG wrt inertial
@@ -270,13 +273,14 @@ if __name__ == '__main__':
     """
     To generate reference trajectories from the current to target position, quadratic bezier curves are used. They
     require start, goal and another point in between them. This is calculated as the points on the circumference of 
-    circle whose center is at the midpoint between start and goal 
+    circle whose center is at the midpoint between start and goal and is perpendicular to the line joining the start
+    and goal
     """
-    plott = True
+    plott = False
+    spacecraft_angles, joint_angles = [], []
+    endEff_posVec, spacecraft_posVec = [], []
     for target in target_loc:
         circ1 = IK.get_circle(start=start, goal=target)
-        spacecraft_angles, joint_angles = [], []
-        endEff_posVec, spacecraft_postionVec = [], []
         for jk, point in enumerate(circ1.T):
             ref_path = util.quadratic_bezier(start, point, target)
             A, Q = IK.call_optimize(ang_s0=ang_s0, q0=q0, ref_path=ref_path)
@@ -290,9 +294,13 @@ if __name__ == '__main__':
                 r_s[:, i] = IK.dyn.spacecraft_com_pos(ang_s=A[:, i], q=Q[:, i], b0=b0)
                 end_eff_pos[:, i] = IK.manip_eef_pos(A[:, i], Q[:, i])
             endEff_posVec.append(end_eff_pos)
-            spacecraft_postionVec.append(r_s)
-            if plott and jk % 26 == 0:
+            spacecraft_posVec.append(r_s)
+            if plott and jk % 10 == 0:
                 call_plots(spacecraftAngles=A, jointAngles=Q, spacecraftPosVec=r_s, ref_path=ref_path)
+    np.save(save_dir + '/save_data_inv_kin/data/SpacecraftAnglesList.npy', spacecraft_angles, allow_pickle=True)
+    np.save(save_dir + '/save_data_inv_kin/data/JointAnglesList.npy', joint_angles, allow_pickle=True)
+    np.save(save_dir + '/save_data_inv_kin/data/endEffPosVecList.npy', endEff_posVec, allow_pickle=True)
+    np.save(save_dir + '/save_data_inv_kin/data/SpacecraftPosVecList.npy', spacecraft_posVec, allow_pickle=True)
 
     """
     A, Q, points, r_s = np.load(save_dir+'/save_data_inv_kin/data/spacecraft_angs_inv_kin1.npy', allow_pickle=True),\

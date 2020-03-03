@@ -49,7 +49,7 @@ class ForwardKin:
         scl, a = 0.8, 1.5
 
         ax.scatter(rs[0], rs[1], rs[2], marker="4")  # satellite CG
-        ax.text(rs[0], rs[1], rs[2], "spacecraft_CG")  # satellite CG
+        ax.text(rs[0], rs[1], rs[2], "spacecraft_CG", color='y', fontsize=14)  # satellite CG
         xz, yz, zz = T_combined[0, 0, 2], T_combined[0, 1, 2], T_combined[0, 2, 2]
         ax.add_artist(Arrow3D([rs[0], rs[0] + scl * xz], [rs[1], rs[1] + scl * yz],
                               [rs[2], rs[2] + + scl * zz], mutation_scale=20,
@@ -64,7 +64,7 @@ class ForwardKin:
             x, y, z = mr[0, :], mr[1, :], mr[2, :]
             ax.plot(x, y, z, 'g', lw=5)
             ax.scatter(0, 0, 0, marker="D")  # CG of the whole spacecraaft-robot arm system is at (0, 0, 0)
-            ax.text(0, 0, 0, "CG_system")  # CG of the whole spacecraaft-robot arm system is at (0, 0, 0)
+            ax.text(0, 0, 0, "System_CG", color='y', fontsize=14)  # CG of the whole spacecraaft-robot arm system is at (0, 0, 0)
             for i in range(2, T_combined.shape[0]):
                 jx, jy, jz = T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3]
                 ax.plot([xx, jx], [yy, jy], [zz, jz], lw=10)  # line segment between joints or links
@@ -76,6 +76,14 @@ class ForwardKin:
                     ax.scatter(T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3], 'gray', lw=10)
                 xx, yy, zz = T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3]
                 # plt.pause(0.05)
+            # fig.set_facecolor('black')
+            # ax.set_facecolor('black')
+            # ax.grid(False)
+            # ax.w_xaxis.pane.fill = False
+            # ax.w_yaxis.pane.fill = False
+            # ax.w_zaxis.pane.fill = False
+            # plt.axis('off')
+
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
@@ -90,7 +98,7 @@ class ForwardKin:
             fig = plt.figure()
             ax = fig.gca(projection='3d')
             # ax.set_aspect('equal')
-        if rot_ang.shape[1] > 3:
+        if rot_ang.ndim == 2 and rot_ang.shape[1] > 3:
             n = rot_ang.shape[1]
             for i in range(n):
                 temp = [(rs[:, i][0], rs[:, i][1], rs[:, i][2])]
