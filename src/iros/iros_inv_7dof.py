@@ -52,7 +52,7 @@ class InvKin:
         discretized = np.outer(np.arange(1, n), step) + start
         return discretized
 
-    def manip_eef_pos(self, ang_s, q):
+    def manip_eef_pos(self, ang_s=None, q=None):
         pv_com, pv_eef, pv_origin = self.dyn.pos_vect_inertial(ang_s=ang_s, q=q)
         pv_eef1 = pv_origin[:, -1]
         return pv_eef1
@@ -63,27 +63,6 @@ class InvKin:
         points = np.insert(points, 0, init_pos, axis=0)
         points = np.insert(points, len(points), eef_des_pos, axis=0)
         return points
-
-    # Method 1: works
-    # def jacobians(self, ang_s, q):
-    #     omega_eef_num = self.dyn.substitute(self.omega_eef, ang_s0=ang_s, q0=q)
-    #     Jw_s, Jw_m = omega_eef_num.jacobian(self.qd_s), omega_eef_num.jacobian(self.qd_m)  # Jv_s and Jv_m are both functions of ang_s, q_i
-    #     Jw_s, Jw_m = np.array(Jw_s).astype(np.float64), np.array(Jw_m).astype(np.float64),
-    #
-    #     vel_eef_num = self.dyn.substitute(self.vel_eef, ang_s0=ang_s, q0=q)
-    #     Jv_s, Jv_m = vel_eef_num.jacobian(self.qd_s), vel_eef_num.jacobian(self.qd_m)  # Jv_s and Jv_m are both functions of ang_s, q_i
-    #     Jv_s, Jv_m = np.array(Jv_s).astype(np.float64), np.array(Jv_m).astype(np.float64),
-    #     return Jv_s, Jv_m, Jw_s, Jw_m
-    #
-    # def generalized_jacobian(self, ang_s, q):
-    #     Jv_s, Jv_m, Jw_s, Jw_m = self.jacobians(ang_s, q)
-    #     L_num = self.dyn.substitute(self.L_num, ang_s0=ang_s, q0=q)
-    #     Ls, Lm = L_num.jacobian(self.qd_s), L_num.jacobian(self.qd_m)
-    #     Ls, Lm = np.array(Ls).astype(np.float64), np.array(Lm).astype(np.float64)
-    #     a1 = np.linalg.solve(Ls, Lm)
-    #     Jv = Jv_m - Jv_s @ a1
-    #     Jw = Jw_m - Jw_s @ a1
-    #     return np.vstack((Jv, Jw)), Ls, Lm
 
     # Method 1: Directly calculating as given in Umetani and Yoshida equation 22
     # Cant handle joint limits

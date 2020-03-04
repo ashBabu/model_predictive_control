@@ -56,25 +56,37 @@ if __name__ == '__main__':
     nDoF, nBf = 7, 5
     target = np.array([-2.8, 0.95, 0.25])
     ang_s0, q0 = np.array([0., 0., 0.]), np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])
+    b0 = np.array([1.05, 1.05, 0])
     traj_learn = TrajectoryLearning(time, target, ang_s0, q0, nDoF=nDoF, nBf=nBf)
     eef_curr_position = traj_learn.spacecraft_inv_kin.manip_eef_pos(ang_s0, q0)
-    rs0 = traj_learn.spacecraft_dyn.spacecraft_com_pos(q=q0, ang_s=ang_s0, b0=np.array([1.05, 1.05, 0]))
+    rs0 = traj_learn.spacecraft_dyn.spacecraft_com_pos(q=q0, ang_s=ang_s0, b0=b0)
     size = traj_learn.spacecraft_inv_kin.kin.size
 
-    conditioned_trajs = traj_learn.trajectories_task_conditioned  # shape is nsamples x ntime x nDoF
+    n_samples = 20
+    conditioned_trajs = traj_learn.taskProMP.getTrajectorySamples(time, n_samples=n_samples)  # shape is nsamples x ntime x nDoF
 
-
-
-    eef_pos = np.zeros((3, len(time)))
-    eef_pos_list = []
-    for j in range(conditioned_trajs.shape[2]):
-        for i in range(conditioned_trajs.shape[0]):
-            eef_pos[:, i] = traj_learn.spacecraft_inv_kin.manip_eef_pos(ang_s0, conditioned_trajs[i, :, j])
-        eef_pos_list.append(eef_pos)
+    ###  code for finding the spacecraft angular values from the conditioned joint values ###
+    spacecraftAngles = np.zeros((n_samples, len(time), 3))
+    endEffPos = np.zeros_like(spacecraftAngles)
+    q, ang_s = q0, ang_s0
+    TrajCost = np.zeros(n_samples)
+    for i in range(n_samples):
+        cost = 0
+        for j in range(len(time)):
+            Is, Im = traj_learn.spacecraft_dyn.momentOfInertia_transform(q=q, ang_s=ang_s, b0=b0)
+            endEffPos[i, j, :] = traj_learn.spacecraft_inv_kin.manip_eef_pos(ang_s=ang_s, q=q)
+            spacecraftAngles[i, j, :] = - np.linalg.solve(Is, Im) @ conditioned_trajs[i, j, :]
+            cost += spacecraftAngles[i, j, :].dot(spacecraftAngles[i, j, :])
+            q = conditioned_trajs[i, j, :]
+            ang_s = spacecraftAngles[i, j, :]
+        TrajCost[i] = cost
 
     traj_learn.spacecraft_fwd_kin.call_plot(rs0, size, 'red', ang_s0, q0)
+    plt.pause(0.05)
+    plt.plot(endEffPos[:, :, 0].reshape(-1), endEffPos[:, :, 1].reshape(-1), endEffPos[:, :, 2].reshape(-1), 'b-')
+    plt.figure()
+    plt.plot(range(1, n_samples+1), TrajCost, '^')
+    ##### Finding cost #######
 
-    for i in range(len(eef_pos_list)):
-        plt.plot(eef_pos_list[i][0], eef_pos_list[i][1], eef_pos_list[i][2])
     plt.show()
     print('hi')

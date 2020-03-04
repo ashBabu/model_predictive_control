@@ -25,7 +25,7 @@ class ProMP:
         trajectoryFlat = basisMultiDoF.dot(weights)
         #a = trajectoryFlat
         trajectoryFlat = trajectoryFlat.reshape((self.numDoF,int(trajectoryFlat.shape[0] / self.numDoF), n_samples))
-        trajectoryFlat = np.transpose(trajectoryFlat))
+        trajectoryFlat = np.transpose(trajectoryFlat)
         # trajectoryFlat = np.transpose(trajectoryFlat, (1, 0, 2))
         #trajectoryFlat = trajectoryFlat.reshape((a.shape[0] / self.numDoF, self.numDoF, n_samples))
 
