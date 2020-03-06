@@ -119,20 +119,23 @@ def Lm_derivative(spacecraft_angles=None, joint_angles=None, spacecraft_vel=None
 
 
 def plots(X, x_ref, U):
+    fs = 14
     plt.figure()
-    plt.plot(X[0, :], 'b', label='optimized theta1')
-    plt.plot(x_ref[0, :], 'b--', label='ref theta1')
+    plt.plot(X[0, :], 'b', label='$optimized ~\\theta_1$')
+    plt.plot(x_ref[0, :], 'b--', label='$ref ~\\theta_1$')
 
-    plt.plot(X[1, :], 'r', label='optimized theta2')
-    plt.plot(x_ref[1, :], 'r--', label='ref theta2')
-    plt.plot(X[2, :], 'k', label='optimized theta3')
-    plt.plot(x_ref[2, :], 'k--', label='ref theta3')
+    plt.plot(X[1, :], 'r', label='$optimized ~\\theta_2$')
+    plt.plot(x_ref[1, :], 'r--', label='$ref ~\\theta_2$')
+    plt.plot(X[2, :], 'k', label='$optimized ~\\theta_3$')
+    plt.plot(x_ref[2, :], 'k--', label='$ref ~\\theta_3$')
     plt.legend()
+    plt.xlabel('time, (s)', fontsize=fs)
+    plt.ylabel('joint angles, (rad)', fontsize=fs)
 
     plt.figure()
-    plt.plot(U[0, :], label='tau_1')
-    plt.plot(U[1, :], label='tau_2')
-    plt.plot(U[2, :], label='tau_3')
+    plt.plot(U[0, :], label='$\\tau_1$')
+    plt.plot(U[1, :], label='$\\tau_2$')
+    plt.plot(U[2, :], label='$\\tau_3$')
     plt.legend()
 
 joint_angles = np.load(load_dir+'joint_angs_inv_kin.npy', allow_pickle=True)  # reference trajectory
@@ -214,11 +217,54 @@ u0 = np.array([[1], [1], [1]])
 X1, U1 = mpc.get_state_and_input(u0, x0)
 # np.save(save_dir+'optimized_angles.npy', X1, allow_pickle=True)
 # np.save(save_dir+'input_torques.npy', U1, allow_pickle=True)
+# X1 = np.load(save_dir+'optimized_angles.npy', allow_pickle=True)
+# tau = np.load(save_dir+'input_torques.npy', allow_pickle=True)
+# U1 = np.load(save_dir+'input_torques.npy', allow_pickle=True)
 
 plots(X1, x_ref, U1)
-plt.show()
+# plt.show()
 ##################################################################################
 
+####### Smoothening  #######
+import tensorflow as tf  # library for machine learning
+# import numpy as np       # library for mathematics (linear algebra)
+# import matplotlib.pyplot as plt   # library for plotting
+import warnings
+y1, y2, y3 = U1[0, :], U1[1, :], U1[2, :]
+xs = np.linspace(0, 35, 35)
 
+import numpy.polynomial.polynomial as poly
+plt.figure()
+coefs = poly.polyfit(xs, y1, 4)
+ffit = poly.polyval(xs, coefs)
+plt.plot(xs, ffit, label='$\\tau_1$')
+# plt.pause(0.05)
+
+coefs = poly.polyfit(xs, y2, 4)
+ffit = poly.polyval(xs, coefs)
+plt.plot(xs, ffit, label='$\\tau_2$')
+
+coefs = poly.polyfit(xs, y3, 4)
+ffit = poly.polyval(xs, coefs)
+plt.plot(xs, ffit, label='$\\tau_3$')
+plt.legend()
+fs=14
+plt.xlabel('time, (s)', fontsize=fs)
+plt.ylabel('Torque, (N-m)', fontsize=fs)
+
+# ffit = poly.Polynomial(coefs)    # instead of np.poly1d
+# plt.plot(xs, ffit(xs))
+
+
+# newY2 = np.ployfit(xs, y2, 3)
+# newY3 = np.ployfit(xs, y3, 3)
+# plt.figure()
+# # plt.plot(xs, newY1)
+# plt.plot(xs, newY2)
+# plt.plot(xs, newY3)
+
+plt.show()
+
+print('hi')
 
 
