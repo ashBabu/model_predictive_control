@@ -42,8 +42,8 @@ class TrajectoryLearning:
         A, Q = self.spacecraft_inv_kin.call_optimize(target=self.target_loc, ang_s0=ang_s0, q0=q0)
         self.post_mean_q = Q[:, -1]
 
-        # self.taskProMP0 = self.learnedProMP.jointSpaceConditioning(0, desiredTheta=self.post_mean_q,
-        #                                                            desiredVar=np.eye(len(self.q0)) * 0.00001)
+        self.taskProMP0 = self.learnedProMP.jointSpaceConditioning(0, desiredTheta=self.q0,
+                                                                   desiredVar=np.eye(len(self.q0)) * 0.0000001)
         self.taskProMP = self.learnedProMP.jointSpaceConditioning(1.0, desiredTheta=self.post_mean_q, desiredVar=np.eye(
             len(self.q0)) * 0.00001)  # desiredVar=self.post_cov_q)
 
@@ -81,12 +81,50 @@ if __name__ == '__main__':
             ang_s = spacecraftAngles[i, j, :]
         TrajCost[i] = cost
 
+    font = {'family': 'serif',
+            'color': 'darkred',
+            'weight': 'normal',
+            'size': 16,
+            }
     traj_learn.spacecraft_fwd_kin.call_plot(rs0, size, 'red', ang_s0, q0)
+
     plt.pause(0.05)
     plt.plot(endEffPos[:, :, 0].reshape(-1), endEffPos[:, :, 1].reshape(-1), endEffPos[:, :, 2].reshape(-1), 'b-')
     plt.figure()
-    plt.plot(range(1, n_samples+1), TrajCost, '^')
-    ##### Finding cost #######
+    plt.plot(range(0, n_samples), TrajCost, '^')
+    index, minTrajCost = np.where(TrajCost == min(TrajCost))[0][0], min(TrajCost)
+    optimalTrajectory = conditioned_trajs[index, :, :]
+    plt.plot(index, minTrajCost, 'o', color='red')
+    plt.text(index, minTrajCost, r'Min cost trajectory', fontdict=font)
+    plt.grid()
+    plt.xticks(np.arange(0, n_samples + 1, 1.0))
+    plt.xlabel('Trajectory number', fontsize=14)
+    plt.ylabel('Cost', fontsize=14)
+    ##### Finding Minimum Spacecraft rotations and positions #######
+    qq, ang_ss = q0, ang_s0
+    MinSpacecraftAngles, MinSpacecraftPositions = np.zeros((3, len(time))), np.zeros((3, len(time)))
 
-    plt.show()
+    for i, minTrajec in enumerate(optimalTrajectory):
+        Is, Im = traj_learn.spacecraft_dyn.momentOfInertia_transform(q=minTrajec, ang_s=ang_ss, b0=b0)
+        MinSpacecraftAngles[:, i] = - np.linalg.solve(Is, Im) @ minTrajec
+        MinSpacecraftPositions[:, i] = traj_learn.spacecraft_dyn.spacecraft_com_pos(q=minTrajec, ang_s=ang_ss, b0=b0)
+        ang_ss = MinSpacecraftAngles[:, i]
+
+    plt.figure()
+    plt.plot(MinSpacecraftAngles[0, :], label='x')
+    plt.plot(MinSpacecraftAngles[1, :], label='y')
+    plt.plot(MinSpacecraftAngles[2, :], label='z')
+    plt.legend()
+    plt.xlabel('Time, (s)', fontsize=14)
+    plt.ylabel('Angular displacement, (rad)', fontsize=14)
+
+    plt.figure()
+    plt.plot(MinSpacecraftPositions[0, :], label='x')
+    plt.plot(MinSpacecraftPositions[1, :], label='y')
+    plt.plot(MinSpacecraftPositions[2, :], label='z')
+    plt.legend()
+    plt.xlabel('Time, (s)', fontsize=14)
+    plt.ylabel('Linear displacement, (m)', fontsize=14)
+
     print('hi')
+    plt.show()
