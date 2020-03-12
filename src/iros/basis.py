@@ -9,8 +9,6 @@ class BasisGenerator():
         self.phaseGenerator = phaseGenerator
 
     def basis(self):
-
-
         return None
 
     def basisMultiDoF(self, time, numDoF):
@@ -53,9 +51,6 @@ class DMPBasisGenerator(BasisGenerator):
         return np.array(basis).transpose()
 
 
-
-
-
 class NormalizedRBFBasisGenerator(BasisGenerator):
 
     def __init__(self, phaseGenerator, numBasis = 10, duration = 1, basisBandWidthFactor = 3, numBasisOutside = 0):
@@ -86,6 +81,23 @@ class NormalizedRBFBasisGenerator(BasisGenerator):
         sumB = np.sum(basis, axis=1)
         basis = [column / sumB for column in basis.transpose()]
         return np.array(basis).transpose()
+
+    def basis_derivative(self, time):
+
+        if isinstance(time, (float, int)):
+            time = np.array([time])
+
+        phase = self.phaseGenerator.phase(time)
+
+        diffSqr = np.array([((x - self.centers) ** 2) * self.bandWidth for x in phase])
+        basis = np.exp(- diffSqr / 2)
+
+        multi_fac = np.array([(x - self.centers) * -self.bandWidth for x in phase])
+        basis_derivative = np.multiply(multi_fac, basis)
+
+        sumBD = np.sum(basis_derivative, axis=1)
+        basis_derivative = [column / sumBD for column in basis_derivative.transpose()]
+        return np.array(basis_derivative).transpose()
 
 
 class NormalizedRhythmicBasisGenerator(BasisGenerator):

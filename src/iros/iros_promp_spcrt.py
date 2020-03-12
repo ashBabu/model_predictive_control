@@ -3,12 +3,12 @@ import os
 import pickle
 import phase as phase
 import basis as basis
-import matplotlib.pyplot as plt
 import promps as promps
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from iros_inv_7dof import InvKin
 from iros_forward_kin import ForwardKin
 from iros_7DoF_EOM import Dynamics
-from mpl_toolkits.mplot3d import Axes3D
 import time as tme
 from scipy.spatial import distance
 from numpy.lib.stride_tricks import as_strided
