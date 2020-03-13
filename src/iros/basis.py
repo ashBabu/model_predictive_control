@@ -11,6 +11,9 @@ class BasisGenerator():
     def basis(self):
         return None
 
+    def basis_derivative(self):
+        return None
+
     def basisMultiDoF(self, time, numDoF):
         basisSingleDoF = self.basis(time)
 
@@ -21,6 +24,21 @@ class BasisGenerator():
             columnIndices = slice(i * basisSingleDoF.shape[1], (i + 1) * basisSingleDoF.shape[1])
             basisMultiDoF[rowIndices, columnIndices] = basisSingleDoF
         return basisMultiDoF
+
+    def basisMultiDoFDerivative(self, time, numDoF):
+        basisSingleDoFDeriv = self.basis_derivative(time)
+        basisMultiDoFDerivative = np.zeros((basisSingleDoFDeriv.shape[0] * numDoF, basisSingleDoFDeriv.shape[1] * numDoF))
+
+        for i in range(numDoF):
+            rowIndices = slice(i * basisSingleDoFDeriv.shape[0], (i + 1) * basisSingleDoFDeriv.shape[0])
+            columnIndices = slice(i * basisSingleDoFDeriv.shape[1], (i + 1) * basisSingleDoFDeriv.shape[1])
+            basisMultiDoFDerivative[rowIndices, columnIndices] = basisSingleDoFDeriv
+        return basisMultiDoFDerivative
+
+    def total_basis(self, time, numDoF):
+        basisMultiDoF = self.basisMultiDoF(time, numDoF)
+        basisMultiDoFDerivative = self.basisMultiDoFDerivative(time, numDoF)
+        return np.vstack((basisMultiDoF, basisMultiDoFDerivative))
 
 
 class DMPBasisGenerator(BasisGenerator):
@@ -98,6 +116,7 @@ class NormalizedRBFBasisGenerator(BasisGenerator):
         sumBD = np.sum(basis_derivative, axis=1)
         basis_derivative = [column / sumBD for column in basis_derivative.transpose()]
         return np.array(basis_derivative).transpose()
+
 
 
 class NormalizedRhythmicBasisGenerator(BasisGenerator):
