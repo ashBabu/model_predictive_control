@@ -63,7 +63,7 @@ if __name__ == '__main__':
     size = traj_learn.spacecraft_inv_kin.kin.size
 
     n_samples = 20
-    conditioned_trajs = traj_learn.taskProMP.getTrajectorySamples(time, n_samples=n_samples)  # shape is nsamples x ntime x nDoF
+    conditioned_trajs = traj_learn.taskProMP.getTrajectorySamples(time, n_samples=n_samples)  # shape is ntime x nDoF x nsamples
 
     ###  code for finding the spacecraft angular values from the conditioned joint values ###
     spacecraftAngles = np.zeros((n_samples, len(time), 3))
@@ -75,9 +75,9 @@ if __name__ == '__main__':
         for j in range(len(time)):
             Is, Im = traj_learn.spacecraft_dyn.momentOfInertia_transform(q=q, ang_s=ang_s, b0=b0)
             endEffPos[i, j, :] = traj_learn.spacecraft_inv_kin.manip_eef_pos(ang_s=ang_s, q=q)
-            spacecraftAngles[i, j, :] = - np.linalg.solve(Is, Im) @ conditioned_trajs[i, j, :]
+            spacecraftAngles[i, j, :] = - np.linalg.solve(Is, Im) @ conditioned_trajs[j, :, i]
             cost += spacecraftAngles[i, j, :].dot(spacecraftAngles[i, j, :])
-            q = conditioned_trajs[i, j, :]
+            q = conditioned_trajs[j, :, i]  #conditioned_trajs[i, j, :]
             ang_s = spacecraftAngles[i, j, :]
         TrajCost[i] = cost
 
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(range(0, n_samples), TrajCost, '^')
     index, minTrajCost = np.where(TrajCost == min(TrajCost))[0][0], min(TrajCost)
-    optimalTrajectory = conditioned_trajs[index, :, :]
+    optimalTrajectory = conditioned_trajs[:, :, index]
     plt.plot(index, minTrajCost, 'o', color='red')
     plt.text(index, minTrajCost, r'Min cost trajectory', fontdict=font)
     plt.grid()
