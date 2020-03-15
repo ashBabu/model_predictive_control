@@ -1,17 +1,18 @@
 import numpy as np
 import phase as phase
+from scipy.linalg import block_diag as bd
 
 
 class BasisGenerator:
 
-    def __init__(self, phaseGenerator, numBasis = 10):
+    def __init__(self, phaseGenerator, numBasis=10):
         self.numBasis = numBasis
         self.phaseGenerator = phaseGenerator
 
     def basis(self):
         return None
 
-    def basis_derivative(self):
+    def basisDerivative(self):
         return None
 
     def basisMultiDoF(self, time, numDoF):
@@ -24,7 +25,7 @@ class BasisGenerator:
         return basisMultiDoF
 
     def basisMultiDoFDerivative(self, time, numDoF):
-        basisSingleDoFDeriv = self.basis_derivative(time)
+        basisSingleDoFDeriv = self.basisDerivative(time)
         basisMultiDoFDerivative = np.zeros((basisSingleDoFDeriv.shape[0] * numDoF, basisSingleDoFDeriv.shape[1] * numDoF))
         for i in range(numDoF):
             rowIndices = slice(i * basisSingleDoFDeriv.shape[0], (i + 1) * basisSingleDoFDeriv.shape[0])
@@ -32,10 +33,11 @@ class BasisGenerator:
             basisMultiDoFDerivative[rowIndices, columnIndices] = basisSingleDoFDeriv
         return basisMultiDoFDerivative
 
-    def total_basis(self, time, numDoF):
+    def totalBasis(self, time, numDoF):
         basisMultiDoF = self.basisMultiDoF(time, numDoF)
         basisMultiDoFDerivative = self.basisMultiDoFDerivative(time, numDoF)
-        return np.vstack((basisMultiDoF, basisMultiDoFDerivative))
+        BasisMatrix = bd(basisMultiDoF, basisMultiDoFDerivative)
+        return BasisMatrix
 
 
 class DMPBasisGenerator(BasisGenerator):
@@ -82,7 +84,7 @@ class NormalizedRBFBasisGenerator(BasisGenerator):
         basis = [column / sumB for column in basis.transpose()]
         return np.array(basis).transpose()
 
-    def basis_derivative(self, time):
+    def basisDerivative(self, time):
         if isinstance(time, (float, int)):
             time = np.array([time])
         phase = self.phaseGenerator.phase(time)
@@ -137,7 +139,7 @@ class NormalizedRBFBasisGeneratorAsh(BasisGenerator):
         basis = [column / sumB for column in basis.transpose()]
         return np.array(basis).transpose()
 
-    def basis_derivative(self, time):
+    def basisDerivative(self, time):
         if isinstance(time, (float, int)):
             time = np.array([time])
         phase = self.phaseGenerator.phase(time)
@@ -158,7 +160,7 @@ if __name__ == "__main__":
     basis = basisGenerator.basis(time)
     basisMultiDoF = basisGenerator.basisMultiDoF(time, 3)
 
-    basisDeriv = basisGenerator.basis_derivative(time)
+    basisDeriv = basisGenerator.basisDerivative(time)
     basisMultiDoFDeriv = basisGenerator.basisMultiDoFDerivative(time, 3)
 
     plt.figure()

@@ -2,7 +2,7 @@ import numpy as np
 import os
 import phase as phase
 import basis as basis
-import promps as promps
+import promps_for_control as prompsControl
 from iros_inv_7dof import InvKin
 from iros_forward_kin import ForwardKin
 from iros_7DoF_EOM import Dynamics
@@ -32,14 +32,16 @@ class TrajectoryLearning:
         self.spacecraft_dyn = Dynamics(nDoF=self.nDoF, robot='7DoF')
         self.time_normalised = time
         self.phaseGenerator = phase.LinearPhaseGenerator()
-        self.basisGenerator = basis.NormalizedRBFBasisGenerator(self.phaseGenerator, numBasis=self.nBf, duration=1,
+        self.basisGenerator = basis.NormalizedRBFBasisGeneratorAsh(self.phaseGenerator, numBasis=self.nBf, duration=1,
                                                                 basisBandWidthFactor=3, numBasisOutside=1)
-        self.basisMultiDoF = self.basisGenerator.basisMultiDoF(self.time_normalised, 2*self.nDoF)
-        self.learnedProMP = promps.ProMP(self.basisGenerator, self.phaseGenerator, 2*self.nDoF)
-        self.learner = promps.MAPWeightLearner(self.learnedProMP)
+        self.basisMultiDoF = self.basisGenerator.totalBasis(self.time_normalised, self.nDoF)
+        self.learnedProMP = prompsControl.ProMP(self.basisGenerator, self.phaseGenerator, self.nDoF)
+        self.learner = prompsControl.MAPWeightLearner(self.learnedProMP)
         self.learnedData = self.learner.learnFromData(StateVector, timeList)
+        # mu_theta, sig_theta = self.learnedProMP.getMeanAndCovarianceTrajectory(np.array([1.0]))
+        mu_w, sig_w = self.learnedProMP.mu, self.learnedProMP.covMat
         mu_theta, sig_theta = self.learnedProMP.getMeanAndCovarianceTrajectory(np.array([1.0]))
-        self.mu_theta, self.sig_theta = np.squeeze(mu_theta), np.squeeze(sig_theta)
+        self.mu_w, self.sig_w = np.squeeze(mu_theta), np.squeeze(sig_theta)
 
         A, Q = self.spacecraft_inv_kin.call_optimize(target=self.target_loc, ang_s0=ang_s0, q0=q0)
         self.post_mean_q = np.hstack((Q[:, -1], np.zeros(self.nDoF)))
@@ -51,6 +53,7 @@ class TrajectoryLearning:
 
         self.trajectories_learned = self.learnedProMP.getTrajectorySamples(self.time_normalised, n_samples=20)
         self.trajectories_task_conditioned = self.taskProMP.getTrajectorySamples(self.time_normalised, n_samples=20)
+        print('hi')
 
 
 class PrompController(TrajectoryLearning):
@@ -59,15 +62,15 @@ class PrompController(TrajectoryLearning):
         self.robot = robot
         self.nState = 2 * self.nDoF
         self.dt = self.time_normalised[1] - self.time_normalised[0]
-        self.basis_dot = self.basisGenerator.basis_derivative(self.time_normalised)
+        self.basis_dot = self.basisGenerator.basisDerivative(self.time_normalised)
         if self.robot == 'Double Integreator':
             ##### for a double integrator  #####
             self.A = np.array([[0, 1], [0, 0]])  # system dynamics matrix
             self.B = np.array([[0], [1]])  # input matrix
             self.c = 0
 
-            self.mu_w = np.random.rand((self.nBf * self.nDoF))  # assuming a value for the mean of the learned distribution
-            self.sig_w = np.random.rand(self.nBf * self.nDoF, self.nBf * self.nDoF)  # assuming a covariance matrix
+            # self.mu_w = np.random.rand((self.nBf * self.nDoF))  # assuming a value for the mean of the learned distribution
+            # self.sig_w = np.random.rand(self.nBf * self.nDoF, self.nBf * self.nDoF)  # assuming a covariance matrix
             ############################################
 
         elif self.robot =='7DoF':
@@ -80,13 +83,10 @@ class PrompController(TrajectoryLearning):
             self.A = np.vstack((np.hstack((zeros, identity)), np.hstack((zeros, zeros))))
             self.B = np.vstack((zeros, identity))
             self.c = 0
-            self.mu_w = np.random.rand(
-                (self.nBf * self.nDoF * 2))  # assuming a value for the mean of the learned distribution
-            self.sig_w = np.random.rand(self.nBf * 2 * self.nDoF, self.nBf * 2 * self.nDoF)  # assuming a covariance mat
+            # self.mu_w = np.random.rand(
+            #     (self.nBf * self.nDoF * 2))  # assuming a value for the mean of the learned distribution
+            # self.sig_w = np.random.rand(self.nBf * 2 * self.nDoF, self.nBf * 2 * self.nDoF)  # assuming a covariance mat
             ####################################
-
-    def test(self):
-        print(self.time_normalised, '###', self.target_loc, self.nDoF)
 
     def calculate_basis_t(self, t_index):  # psi_t as in Using probabilistic MPs in robotics
         basis_t = np.zeros((self.nState, self.nState * self.nBf))
@@ -181,10 +181,35 @@ class PrompController(TrajectoryLearning):
         temp4 = np.dot(temp2, temp3)
         return np.dot(B_inv, (temp1 - temp4 - self.c))
 
+    def calculate_control(self, time, n_samples=20):
+        conditioned_trajs = self.taskProMP.getTrajectorySamples(time, n_samples=n_samples)  # nT x 2*nDoF x n_samples
+        plt.figure()
+        plt.plot(time, conditioned_trajs[:, 3, :])
+        plt.xlabel('time')
+        plt.title('Joint-Space conditioning')
+        plt.show()
+        dt = time[1] - time[0]
+        u = np.zeros((len(time), self.nDoF))
+        for i in range(len(time)):
+            K = self.calculate_feedback_gain(i)
+            k = self.calculate_feedforward_gain(i)
+            sig_u = self.calculate_sig_u(i)
+            mu_noise = np.zeros(sig_u.shape[0])
+            eps_u = np.random.multivariate_normal(mu_noise, sig_u / dt)
+            y_t = conditioned_trajs[i, :, 0]
+            u[i, :] = K @ y_t + k + eps_u
+        return u
+
+    def plott(self, time, n_samples=10):
+        u = self.calculate_control(time, n_samples=n_samples)
+        plt.plot(time, u)
+        plt.show()
+        print('hi')
+
 
 if __name__ == '__main__':
-    time = np.linspace(0, 1, 5)
-    nDoF, nBf = 7, 5
+    time = np.linspace(0, 1, 50)
+    nDoF, nBf = 7, 10
     aa, robot = 4, '7DoF'
     target = np.array([-2.8, 0.95, 0.25])
     ang_s0, q0 = np.array([0., 0., 0.]), np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])
@@ -192,18 +217,6 @@ if __name__ == '__main__':
 
     ProMP_controller = PrompController(time, target, ang_s0, q0, nDoF=nDoF, nBf=nBf, robot=robot)
     n_samples = 20
-    conditioned_trajs = ProMP_controller.taskProMP.getTrajectorySamples(time,
-                                                                  n_samples=n_samples)  # nsamples x nT x 2*nDoF
-    # VList = [np.diff(Q, axis=0) for Q in conditioned_trajs]  # velocity (nT - 1) x nDoF
-    # VList = [np.vstack((np.zeros(2 * nDoF), V)) for V in VList]
-    # StateVector = [np.vstack((q, v)) for q, v in zip(conditioned_trajs, VList)]
 
-    basis_t = ProMP_controller.calculate_basis_t(aa)
-    K = ProMP_controller.calculate_feedback_gain(aa)
-    k = ProMP_controller.calculate_feedforward_gain(aa)
-    sig_u = ProMP_controller.calculate_sig_u(aa)
-    mu_noise = np.zeros(sig_u.shape[0])
-    eps_u = np.random.multivariate_normal(mu_noise, sig_u)
-    y_t = conditioned_trajs[0][aa, :]
-    u = K @ y_t + k + eps_u
+    ProMP_controller.plott(time, n_samples=n_samples)
     print('hi')

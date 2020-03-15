@@ -52,8 +52,8 @@ class TrajectoryLearning:
 
 
 if __name__ == '__main__':
-    time = np.linspace(0, 1, 15)
-    nDoF, nBf = 7, 5
+    time = np.linspace(0, 1, 50)
+    nDoF, nBf = 7, 10
     target = np.array([-2.8, 0.95, 0.25])
     ang_s0, q0 = np.array([0., 0., 0.]), np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])
     b0 = np.array([1.05, 1.05, 0])
@@ -63,7 +63,14 @@ if __name__ == '__main__':
     size = traj_learn.spacecraft_inv_kin.kin.size
 
     n_samples = 20
-    conditioned_trajs = traj_learn.taskProMP.getTrajectorySamples(time, n_samples=n_samples)  # shape is ntime x nDoF x nsamples
+    conditioned_trajs = traj_learn.taskProMP.getTrajectorySamples(time, n_samples=n_samples)  # ntime x nDoF x nsamples
+
+    pltDof = 3
+    plt.figure()
+    plt.plot(time, conditioned_trajs[:, pltDof, :])
+    plt.xlabel('time')
+    plt.title('Joint-Space conditioning')
+    plt.show()
 
     ###  code for finding the spacecraft angular values from the conditioned joint values ###
     spacecraftAngles = np.zeros((n_samples, len(time), 3))
@@ -77,7 +84,7 @@ if __name__ == '__main__':
             endEffPos[i, j, :] = traj_learn.spacecraft_inv_kin.manip_eef_pos(ang_s=ang_s, q=q)
             spacecraftAngles[i, j, :] = - np.linalg.solve(Is, Im) @ conditioned_trajs[j, :, i]
             cost += spacecraftAngles[i, j, :].dot(spacecraftAngles[i, j, :])
-            q = conditioned_trajs[j, :, i]  #conditioned_trajs[i, j, :]
+            q = conditioned_trajs[j, :, i]  # conditioned_trajs[j, :, i]
             ang_s = spacecraftAngles[i, j, :]
         TrajCost[i] = cost
 
