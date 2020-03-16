@@ -15,6 +15,9 @@ class BasisGenerator:
     def basisDerivative(self):
         return None
 
+    def basisSecondDerivative(self):
+        return None
+
     def basisMultiDoF(self, time, numDoF):
         basisSingleDoF = self.basis(time)
         basisMultiDoF = np.zeros((basisSingleDoF.shape[0] * numDoF, basisSingleDoF.shape[1] * numDoF))
@@ -32,6 +35,15 @@ class BasisGenerator:
             columnIndices = slice(i * basisSingleDoFDeriv.shape[1], (i + 1) * basisSingleDoFDeriv.shape[1])
             basisMultiDoFDerivative[rowIndices, columnIndices] = basisSingleDoFDeriv
         return basisMultiDoFDerivative
+
+    def basisMultiDoFSeondDerivative(self, time, numDoF):
+        basisSingleDoFDeriv = self.basisDerivative(time)
+        basisMultiDoFSecondDerivative = np.zeros((basisSingleDoFDeriv.shape[0] * numDoF, basisSingleDoFDeriv.shape[1] * numDoF))
+        for i in range(numDoF):
+            rowIndices = slice(i * basisSingleDoFDeriv.shape[0], (i + 1) * basisSingleDoFDeriv.shape[0])
+            columnIndices = slice(i * basisSingleDoFDeriv.shape[1], (i + 1) * basisSingleDoFDeriv.shape[1])
+            basisMultiDoFSecondDerivative[rowIndices, columnIndices] = basisSingleDoFDeriv
+        return basisMultiDoFSecondDerivative
 
     def totalBasis(self, time, numDoF):
         basisMultiDoF = self.basisMultiDoF(time, numDoF)
@@ -149,6 +161,17 @@ class NormalizedRBFBasisGeneratorAsh(BasisGenerator):
         basis_derivative = np.multiply(multi_fac, basis)
         return basis_derivative
 
+    def basisSecondDerivative(self, time):
+        if isinstance(time, (float, int)):
+            time = np.array([time])
+        phase = self.phaseGenerator.phase(time)
+        basis = self.basis(time)
+        basisDeriv = self.basisDerivative(time)
+        multi_fac = np.array([(x - self.centers) * -self.bandWidth for x in phase])
+        temp = np.multiply(multi_fac, basisDeriv)
+        basisSecondDeriv = temp + -self.bandWidth * basis
+        return basisSecondDeriv
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -164,6 +187,9 @@ if __name__ == "__main__":
     basisDeriv = basisGenerator.basisDerivative(time)
     basisMultiDoFDeriv = basisGenerator.basisMultiDoFDerivative(time, 3)
 
+    basis2Deriv = basisGenerator.basisSecondDerivative(time)
+    basisMultiDoF2Deriv = basisGenerator.basisMultiDoFSeondDerivative(time, 3)
+
     plt.figure()
     plt.plot(time, basis)
     plt.ylabel('Basis', fontsize=14)
@@ -172,7 +198,10 @@ if __name__ == "__main__":
     plt.plot(time, basisDeriv)
     plt.ylabel('BasisDerivative', fontsize=14)
 
-    plt.show()
+    plt.figure()
+    plt.plot(time, basis2Deriv)
+    plt.ylabel('BasisSecondDerivative', fontsize=14)
 
+    plt.show()
     print('done')
 
