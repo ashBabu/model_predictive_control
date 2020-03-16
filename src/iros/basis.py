@@ -36,7 +36,8 @@ class BasisGenerator:
     def totalBasis(self, time, numDoF):
         basisMultiDoF = self.basisMultiDoF(time, numDoF)
         basisMultiDoFDerivative = self.basisMultiDoFDerivative(time, numDoF)
-        BasisMatrix = bd(basisMultiDoF, basisMultiDoFDerivative)
+        # BasisMatrix = bd(basisMultiDoF, basisMultiDoFDerivative)
+        BasisMatrix = np.vstack((basisMultiDoF, basisMultiDoFDerivative))
         return BasisMatrix
 
 

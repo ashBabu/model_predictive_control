@@ -20,7 +20,7 @@ class ProMP:
         self.phase = phase
         self.numDoF = numDoF
         self.numState = 2 * self.numDoF   # The state variables are position and velocity
-        self.numWeights = basis.numBasis * self.numState
+        self.numWeights = basis.numBasis * self.numDoF
         self.mu = np.zeros(self.numWeights)
         self.covMat = np.eye(self.numWeights)
         # self.observationSigma = np.ones(self.numDoF)
