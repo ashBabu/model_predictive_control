@@ -5,6 +5,17 @@ deep_learning/
 .ipynb_checkpoints/
 pympc/
 MPC_theory/
+# src/iros/Coriolis.c
+# src/iros/Coriolis.h
+# src/iros/Coriolis.pickle
+# src/iros/MassMatrix.c
+# src/iros/MassMatrix.h
+# src/iros/MassMatrix.pickle
+
+*.c
+*.h
+*.pickle
+
 .idea/
 *.pyc
 *.xml
