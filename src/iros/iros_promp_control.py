@@ -18,7 +18,7 @@ QList = list(np.transpose(QList, (0, 2, 1)))  # Trajectories should of the shape
 # VList = [0.1*np.diff(Q, axis=0) for Q in QList]  # velocity (nT - 1) x nDoF
 # VList = [np.vstack((np.zeros(nDoF), V)) for V in VList]
 # StateVector = [np.vstack((q, v)) for q, v in zip(QList, VList)]
-timeList = [np.linspace(0, 1, nT) for i in range(len(QList))]
+timeList = [np.linspace(0, 1, QList[0].shape[0]) for i in range(len(QList))]
 
 
 class TrajectoryLearning:
