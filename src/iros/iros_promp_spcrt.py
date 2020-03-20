@@ -70,7 +70,7 @@ if __name__ == '__main__':
     plt.plot(time, conditioned_trajs[:, pltDof, :])
     plt.xlabel('time')
     plt.title('Joint-Space conditioning')
-    plt.show()
+    # plt.show()
 
     ###  code for finding the spacecraft angular values from the conditioned joint values ###
     spacecraftAngles = np.zeros((n_samples, len(time), 3))
