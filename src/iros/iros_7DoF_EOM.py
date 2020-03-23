@@ -35,7 +35,7 @@ class Kinematics:
             self.DH = {'a': self.a, 'd': self.d, 'alpha': self.alpha}
         elif robot == '7DoF':
             self.l_num = np.array([3.5, 0.5, 0.5, 1., 0.7, 0.5, 0.5, 1.5])
-            self.ang_s0 = np.array([0., 0.15, 0.2])
+            self.ang_s0 = np.array([0.0, 0.0, 0.0])
             self.q0 = np.array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
 
             self.eef_dist = 0.3
