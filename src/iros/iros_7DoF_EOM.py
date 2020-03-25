@@ -4,14 +4,9 @@ Author: Ash Babu
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import pickle
-from sympy import *
-from sympy.physics.mechanics import *
-from sympy.tensor.array import Array
 from utils import Utilities
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=2)
-# init_printing()
 
 
 class Kinematics:
@@ -19,57 +14,28 @@ class Kinematics:
     def __init__(self, nDoF=3, robot='3DoF'):
         # b0 = x, y, z location of robot's base
         self.nDoF = nDoF
-        self.qm, self.qdm, self.l, self.r = self.initializing(self.nDoF)  # qm = manipulator joint angles
-        # qdm = manipulator joint velocities, l = link lengths, r = COM vectors from joints
 
-        if robot == '3DoF':  # as given in umeneti and yoshida: resolved motion rate control of space manipulators
-            self.l_num = np.array([3.5, 0.25, 2.5, 2.5])
-            self.ang_s0 = Array([0., 0., 0.])
-            self.q0 = Array([pi / 3 * 0, 5*pi / 4, pi/2])  # as given in Umaneti and Yoshida: Resolved..
-            # self.q0 = Array([pi / 3 * 0, pi / 2, 0])
-            # DH parameters:
-            self.alpha = Array([-pi / 2, pi / 2, 0.])
-            self.a = Array([0., 0., 2.5])
-            self.d = Array([0.25, 0., 0.])
-            self.eef_dist = 2.50  # l3
-            self.DH = {'a': self.a, 'd': self.d, 'alpha': self.alpha}
-        elif robot == '7DoF':
-            self.l_num = np.array([3.5, 0.5, 0.5, 1., 0.7, 0.5, 0.5, 1.5])
+        if robot == '7DoF':
+            self.l_num = np.array([2.1, 0.5, 0.9, 0.9, 0.8, 0.8, 0.8, 0.9])
             self.ang_s0 = np.array([0.0, 0.0, 0.0])
-            self.q0 = np.array([0., 5*pi/4, 0., 0., 0., pi/2, 0.])
 
-            self.eef_dist = 0.3
-            self.a = np.array([0., 0., 1., 0.7, 0.5, 0.5, 0., 0.])
-            self.d = np.array([0.5, 0., 0., 0., 0., 0., 1.5, self.eef_dist])
-            self.alpha = np.array([-np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2, -np.pi / 2, -np.pi / 2, 0.])
+            self.eef_dist = 0.9
+            self.a = np.array([0., 0., 0.9, 0.9, 0.8, 0.8, 0., 0.])
+            self.d = np.array([0.5, 0., 0., 0., 0., 0., 0.8, self.eef_dist])
+            self.alpha = np.array([-np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2, 0., -np.pi / 2, -np.pi / 2, 0.])
+            self.q0 = np.array([0., 5*np.pi/4, 0., 0., np.pi / 2, -np.pi / 2, 0.])
             self.DH = {'a': self.a, 'd': self.d, 'alpha': self.alpha}
 
         else:
-            self.a = Array([0, *self.l])
-            self.d = Array([0.0, 0.0])
-            self.alpha = Array([0.0, 0.0])
+            self.l_num = np.array([3.5, 0.25, 2.5, 2.5])
+            self.a = np.array([1, 1])
+            self.d = np.array([0.0, 0.0])
+            self.alpha = np.array([0.0, 0.0])
         self.util = Utilities(DH=self.DH)
-        hh = 2.1
+        hh = self.l_num[0]
         self.size = [(hh, hh, hh)]  # satellite dimension
         x, y, z = 0.5*self.size[0][0], 0.5*self.size[0][0], 0
         self.b0 = np.array([x, y, 0.], dtype=float)  # vector from spacecraft COM to robot base wrt spacecraft CS
-        self.r_sx, self.r_sy, self.r_sz, = dynamicsymbols('r_sx r_sy r_sz')  # r_s = satellite pos_vec wrt inertial
-        self.ang_xs, self.ang_ys, self.ang_zs = dynamicsymbols("ang_xs ang_ys ang_zs ")
-        self.r_sxd, self.r_syd, self.r_szd, = dynamicsymbols('r_sx r_sy r_sz', 1)  # satellite linear vel wrt inertial
-        self.w_sxd, self.w_syd, self.w_szd = dynamicsymbols("ang_xs ang_ys ang_zs ",
-                                                            1)  # satellite angular vel wrt inertial
-        self.q = Matrix([self.r_sx, self.r_sy, self.r_sz, self.ang_xs, self.ang_ys, self.ang_zs, *self.qm])
-        self.qd = Matrix([self.r_sxd, self.r_syd, self.r_szd, self.w_sxd, self.w_syd, self.w_szd, *self.qdm])
-
-        self.rx = symbols(["r%d" % x for x in range(1, nDoF+1)])  # x component of COM vector of the links
-        self.aa = symbols(["aa%d" % x for x in range(1, nDoF+1)])  # x component of vector from joint i to COM of link i
-        self.bb = symbols(["bb%d" % x for x in range(nDoF)])  # x component of vector frm COM of link i to joint i+1
-
-        self.q_i, self.alpha_i, self.a_i, self.d_i = symbols("q_i alpha_i a_i d_i")
-        # self.ang_xb, self.ang_yb, self.ang_zb, b0[0, b0[1, b0[2 = symbols(
-        #     "ang_xb ang_yb ang_zb b0x b0y b0z")
-        # self.ang_x, self.ang_y, self.ang_z, self.r0x, self.r0y, self.r0z = symbols("ang_x ang_y ang_z r0x, r0y, r0z")
-        # self.b0 = np.array([0.2, 0.3, 0.])  # vector from the spacecraft COM to the base of the robot in spacecraft CS
 
     def skew_matrix(self, w):  # skew_symmetric matrix of the vector 'w'
         S = np.zeros((3, 3))
@@ -81,25 +47,8 @@ class Kinematics:
         S[2, 1] = w[0]
         return S
 
-    def initializing(self, nDoF):
-        # q = dynamicsymbols('q:{0}'.format(nDoF))
-        # r = dynamicsymbols('r:{0}'.format(nDoF))
-        # for i in range(1, nDoF+1):
-        q = dynamicsymbols(['q%d' % x for x in range(1, nDoF+1)])
-        qd = dynamicsymbols(["q%d" % x for x in range(1, nDoF+1)], 1)
-        l = symbols(["l%d" % x for x in range(1, nDoF+1)])
-        rx = symbols(["r%d" % x for x in range(1, nDoF+1)])  # x component of COM vector of the links
-        r = []
-        [r.append(zeros(3, 1)) for i in range(1, nDoF+1)]  # MOI matrix for the satellite and each of the links
-        for i in range(nDoF):
-            r[i][0] = 0.5 * rx[i]
-        return q, qd, l, r
-
-    def euler_transformations(self, args=None):
-        if args:
-            ang_x, ang_y, ang_z, r0x, r0y, r0z = args[0], args[1], args[2], args[3], args[4], args[5]
-        else:
-            ang_x, ang_y, ang_z, r0x, r0y, r0z = self.ang_xs, self.ang_ys, self.ang_zs, self.r_sx, self.r_sy, self.r_sz
+    def euler_transformations(self, args):
+        ang_x, ang_y, ang_z, r0x, r0y, r0z = args  # args[0], args[1], args[2], args[3], args[4], args[5]
         cx, cy, cz = np.cos(ang_x), np.cos(ang_y), np.cos(ang_z)
         sx, sy, sz = np.sin(ang_x), np.sin(ang_y), np.sin(ang_z)
         T = np.array([[cy*cz, -cy*sz, sy, r0x],
@@ -122,7 +71,7 @@ class Kinematics:
         return T_joint, Ti
 
     def robot_base_ang(self, b0=None):
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.b0
         an = (np.arctan2(b0[1], b0[0]) * 180 / np.pi) % 360  # gives an angles in 0 - 360 degrees
         an = (an - 90.) * np.pi / 180  # This means y axis is along the robot's first link as per DH
@@ -132,7 +81,7 @@ class Kinematics:
 
     def fwd_kin_spacecraft(self, b0=None):
         # s_T_b = transformation from robot_base to spacecraft
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.b0
         ang_b = self.robot_base_ang(b0=b0)
         s_T_b = self.euler_transformations([ang_b[0], ang_b[1], ang_b[2], b0[0], b0[1], b0[2]])  # a const 4 x 4 matrix
@@ -147,8 +96,8 @@ class Kinematics:
         T_joint, _ = self.fwd_kin_manip(q=q)
         s_T_b = self.fwd_kin_spacecraft(b0=b0)
         s_T_full = np.zeros((T_joint.shape[0]+1, 4, 4))  # s_T_full is n x 4 x 4 transf. matrices
-        # s_T_full = [s_T_b, s_T_j1, s_T_j2,..., s_T_ee]
-        # containing robot base (fixed joint 0) and each of the joint CS
+        """s_T_full = [s_T_b, s_T_j1, s_T_j2,..., s_T_ee]
+        # containing robot base (fixed joint 0) and each of the joint CS """
         s_T_full[0, :, :] = s_T_b
         for i in range(1, 2+self.nDoF):
             s_T_full[i, :, :] = s_T_b @ T_joint[i - 1]
@@ -195,12 +144,11 @@ class Kinematics:
         As described in the paper, Here 'a' = vector from joint i to COM of link i wrt inertial
             # 'b' = vector from COM of link i to joint i+1 wrt inertial
         """
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.b0
         _, _, j_com_vec = self.pos_vect(q=q, b0=b0)
-        if not isinstance(com_vec, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(com_vec, (list, tuple, np.ndarray)):
             j_R_s = self.util.rot_mat_3d(ang_s)
-            # rr = rotation_matrix(ang_s)
             a = j_R_s @ j_com_vec   # transformation to inertial of 'a'
             b0 = j_R_s @ b0  # transformation to inertial of b
             b = np.hstack((b0.reshape(-1, 1), a))
@@ -218,39 +166,6 @@ class Kinematics:
         for i in range(1, rot_full_inertial.shape[0]):
             rot_full_inertial[i, :, :] = j_R_s @ s_T_full[i-1, 0:3, 0:3]
         return rot_full_inertial
-
-    # def velocities(self, q=None, ang_s=None, q_dot=None, b0=None):  # Need to update
-    #     if not isinstance(b0, (list, tuple, np.ndarray)):
-    #         b0 = self.b0
-    #     s_T_full = self.fwd_kin_full(q=q, b0=b0)
-    #     rot_full_inertial = self.rots_from_inertial(q=q, ang_s=ang_s, b0=b0)
-    #     pv_origins, pv_com, j_com_vec = self.pos_vect(q, b0=b0)  # with respect to satellite CS
-    #     # j_T_full = [0_T_s, 0_T_j0, 0_T_j1, 0_T_j2,..., 0_T_ee]
-    #     # j_com_vec =  vector from joint i to COM of link i wrt in inertial. vector 'a' in Umeneti and Yoshida
-    #     omega = np.zeros(3, self.nDoF+2)
-    #     joint_velocity = np.zeros(3, self.nDoF+2)
-    #     com_vel = np.zeros(3, self.nDoF+1)
-    #     b = np.array([[b0[0]], [b0[1]], [b0[2]]])
-    #     omega[:, 0] = np.array([[self.w_sxd], [self.w_syd], [self.w_szd]])  # 0_w_s = ang vel of satellite wrt 0
-    #     omega[:, 1] = np.array([[self.w_sxd], [self.w_syd], [self.w_szd]])  # 0_w_j0 = ang vel of robot base
-    #     for i in range(2, 2+self.nDoF):
-    #         temp = s_T_full[i][0:3, 2] * self.qdm[i - 2]
-    #         omega[:, i] = omega[:, i-1] + temp
-    #
-    #     joint_velocity[:, 0] = np.array([[self.r_sxd], [self.r_syd], [self.r_szd]])  # satellite linear vel of COM
-    #     joint_velocity[:, 1] = joint_velocity[:, 0] +\
-    #                            omega[:, 0].cross((s_T_full[0][0:3, 0:3] @ b))  # lin vel of robot_base ({j0})
-    #     # Note: j_T_full[0][0:3, 0:3] @ b = pv_origins[:, 1] - pv_origins[:, 0]
-    #     for i in range(2, 2+self.nDoF - 1):  # not considering end-eff vel
-    #         v = pv_origins[:, i] - pv_origins[:, i-1]
-    #         joint_velocity[:, i] = joint_velocity[:, i - 1] + omega[:, i-1].cross(v)
-    #     jk = 0
-    #     com_vel[:, 0] = joint_velocity[:, 0]
-    #     for i in range(1, joint_velocity.shape[1]-1):
-    #         if joint_velocity[:, i] == joint_velocity[:, i+1]:
-    #             jk += 1
-    #         com_vel[:, i] = joint_velocity[:, i+jk] + omega[:, i+1].cross(j_com_vec[:, i-1])
-    #     return omega, com_vel, joint_velocity
 
     def plotter(self, ax, points, j_T_full, pv_origins, pv_com, j_r_c=(0, 0, 0)):
         ax.plot(points[0, :], points[1, :])  # draw rectangular satellite
@@ -284,14 +199,6 @@ class Dynamics:
 
     def __init__(self, nDoF=3, robot='3DoF'):
         self.nDoF = nDoF
-        self.Is_xx, self.Is_yy, self.Is_zz = symbols('Is_xx, Is_yy, Is_zz')
-        self.Ixx = symbols(["Ixx%d" % x for x in range(1, self.nDoF+1)])  # x component of MOI of the links about its COm
-        self.Iyy = symbols(["Iyy%d" % x for x in range(1, self.nDoF+1)])  # y component of MOI of the links about its COm
-        self.Izz = symbols(["Izz%d" % x for x in range(1, self.nDoF+1)])  # z component of MOI of the links about its COm
-        self.m = symbols(["m%d" % x for x in range(self.nDoF+1)])   # mass of space-craft and each of the links
-        self.tau, self.I = self.initializing(self.nDoF)
-        self.I_full = [self.Is_xx, self.Is_yy, self.Is_zz, *self.Ixx, *self.Iyy, *self.Izz]
-
         self.kin = Kinematics(nDoF=self.nDoF, robot=robot)
 
         # numeric values
@@ -319,20 +226,6 @@ class Dynamics:
                                              self.I3.diagonal(), self.I4.diagonal(), self.I5.diagonal(),
                                              self.I6.diagonal(), self.I7.diagonal())), dtype=float)
 
-    def initializing(self, nDoF):
-        # q = dynamicsymbols('q:{0}'.format(nDoF))
-        # r = dynamicsymbols('r:{0}'.format(nDoF))
-        # for i in range(1, nDoF+1):
-        tau = symbols(["tau%d" % x for x in range(1, nDoF+1)])   # mass of space-craft and each of the links
-        I = []
-        [I.append(zeros(3)) for i in range(nDoF+1)]  # MOI matrix for the satellite and each of the links
-        I[0][0, 0], I[0][1, 1], I[0][2, 2] = self.Is_xx, self.Is_yy, self.Is_zz
-        for i in range(nDoF):
-            I[i+1][0, 0] = self.Ixx[i]
-            I[i+1][1, 1] = self.Iyy[i]
-            I[i+1][2, 2] = self.Izz[i]
-        return tau, I
-
     def mass_frac(self):
         M = np.sum(self.mass)
         k11 = np.zeros(self.nDoF)
@@ -358,7 +251,7 @@ class Dynamics:
         return r_s
 
     def transf_from_inertial(self, q=None, ang_s=None, b0=None):
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
         j_R_s = self.kin.util.rot_mat_3d(ang_s)  # rotation matrix of satellite CS, {s}, wrt inertial CS, {j}
         j_R_s = np.vstack((j_R_s, np.zeros(3)))
@@ -374,7 +267,7 @@ class Dynamics:
         return j_T_full
 
     def pos_vect_inertial(self, q=None, ang_s=None, b0=None, pltt=False):
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
         # rs, r1, r2 etc are pv from inertial to COM of spacecraft, link1, lin2, ...
         r0 = self.spacecraft_com_pos(q=q, ang_s=ang_s, b0=b0)  # wrt inertial {j}
@@ -413,7 +306,7 @@ class Dynamics:
         return pv_com, pv_eef, pv_origin
 
     def geometric_jacobian_satellite(self, q=None, ang_s=None, b0=None):
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
         j_R_s = self.kin.util.rot_mat_3d(ang_s)
         x_axis, y_axis, z_axis = j_R_s[:, 0], j_R_s[:, 1], j_R_s[:, 2]  # wrt inertial
@@ -430,7 +323,7 @@ class Dynamics:
         return ang_vel_jac, J_sat
 
     def geometric_jacobian_manip(self, q=None, ang_s=None, b0=None):    # Method 2: for finding Jacobian
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
         _, pv_eef, pv_origin = self.pos_vect_inertial(q=q, ang_s=ang_s, b0=b0)
         j_T_full = self.transf_from_inertial(q=q, ang_s=ang_s, b0=b0)
@@ -444,7 +337,7 @@ class Dynamics:
         return J_manip
 
     def momentOfInertia_transform(self, q=None, ang_s=None, b0=None):
-        if not isinstance(b0, (list, tuple, np.ndarray, ImmutableDenseNDimArray)):
+        if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.kin.b0
         pv_com, _, _ = self.pos_vect_inertial(q=q, ang_s=ang_s, b0=b0)
         I = self.I
@@ -482,7 +375,7 @@ class Solver(object):
 
     def num_integration(self, *args):
         derivative, init_pos, t = args
-        # derivative is a 3 x t matrix whose integration is to be carried out
+        """ derivative is a 3 x t matrix whose integration is to be carried out """
         shp = derivative.shape
         ln = len(t)
         integrand = np.zeros(shp)
@@ -509,8 +402,7 @@ if __name__ == '__main__':
     ang_b = kin.robot_base_ang(b0=b0)
 
     ang_s0 = np.array([0., 0., 0.])
-    q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0, 0.])
-    # q0 = Array([pi / 3 * 0, 5 * pi / 4, pi / 2])
+    q0 = kin.q0
     # a, b, c = kin.pos_vect(q0)
     # s = dyn.spacecraft_com_pos(ang_s=ang_s0, q=q0)
     # a, b, c = dyn.pos_vect_inertial(q=q0, ang_s=ang_s0)
