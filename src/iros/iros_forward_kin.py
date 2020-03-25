@@ -1,13 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from iros_dh_plotter import DH_plotter
 from iros_draw_satellite import SatellitePlotter
-# from fwd_kin import MayaviRendering
 from iros_7DoF_EOM import Dynamics, Kinematics
-np.set_printoptions(precision=3)
 from scipy.spatial.transform import Rotation as R
-# from mayavi import mlab
 from arrow3d import Arrow3D
+np.set_printoptions(precision=3)
+# from fwd_kin import MayaviRendering
+# from mayavi import mlab
 
 
 def rot_mat_3d(*args):
@@ -26,7 +25,6 @@ class ForwardKin:
     def __init__(self, nDoF=7, robot='7DoF',  size=2.1):
         self.nDoF = nDoF
         self.size = [(size, size, size)]
-        self.DHPlot = DH_plotter(nDoF=self.nDoF, robot=robot)
         self.satPlot = SatellitePlotter()
         self.dyn = Dynamics(nDoF=self.nDoF, robot=robot)
 
@@ -42,7 +40,7 @@ class ForwardKin:
     def satellite_namipulator(self, rot_ang=None, q=None, rs=None, size=None, ax=None, b0=None):
         if not isinstance(b0, (list, tuple, np.ndarray)):
             b0 = self.dyn.kin.b0
-        # rot_ang = [ang_sx, ang_sy, ang_sz], q = [q1, q2, ...]
+        """ rot_ang = [ang_sx, ang_sy, ang_sz], q = [q1, q2, ...] """
         Rot = rot_mat_3d(rot_ang)
         T_combined = self.dyn.transf_from_inertial(q=q, ang_s=rot_ang, b0=b0)
         ll = T_combined.shape[0]
@@ -54,7 +52,7 @@ class ForwardKin:
         ax.add_artist(Arrow3D([rs[0], rs[0] + scl * xz], [rs[1], rs[1] + scl * yz],
                               [rs[2], rs[2] + + scl * zz], mutation_scale=20,
                               lw=3, arrowstyle="-|>", color="b"))  # spacecraft z (joint) axis
-        # plt.pause(0.05)
+        plt.pause(0.05)
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]  # robot base (x, y, z)
         ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
@@ -70,8 +68,8 @@ class ForwardKin:
                 ax.plot([xx, jx], [yy, jy], [zz, jz], lw=10)  # line segment between joints or links
                 ax.add_artist(Arrow3D([jx, jx + scl*T_combined[i, 0, 2]], [jy, jy+ scl*T_combined[i, 1, 2]], [jz, jz+ + scl*T_combined[i, 2, 2]], mutation_scale=20,
                         lw=3, arrowstyle="-|>", color="b"))  # z (joint) axis
-                # ax.add_artist(Arrow3D([jx, jx + scl*T_combined[i, 0, 0]], [jy, jy+ scl*T_combined[i, 1, 0]], [jz, jz+ + scl*T_combined[i, 2, 0]], mutation_scale=20,
-                #         lw=3, arrowstyle="-|>", color="r"))  # x  axis
+                ax.add_artist(Arrow3D([jx, jx + scl*T_combined[i, 0, 0]], [jy, jy+ scl*T_combined[i, 1, 0]], [jz, jz+ + scl*T_combined[i, 2, 0]], mutation_scale=20,
+                        lw=5, arrowstyle="-|>", color="r"))  # x  axis
                 if i < ll-1:
                     ax.scatter(T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3], 'gray', lw=10)
                 xx, yy, zz = T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3]
@@ -87,7 +85,7 @@ class ForwardKin:
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
-            ax.view_init(elev=111., azim=72.)
+            ax.view_init(elev=141., azim=30.)
             ax.set_zlim(-a, a)
             # ax.set_ylim(-a, a)
             # ax.set_xlim(-a, a)
@@ -110,12 +108,12 @@ class ForwardKin:
                     self.satellite_namipulator(rot_ang=rot_ang[:, i], q=qi, rs=p, size=s, ax=ax, b0=b0)
                 # plt.pause(0.05)
         else:
-            temp = [(rs[0], rs[1], rs[2])]
+
+            # temp = [(rs[0], rs[1], rs[2])]
             plt.cla()
             # if isinstance(pv_com, (list, tuple, np.ndarray)):
             #     ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
-            for p, s, c in zip(temp, size, color):
-                self.satellite_namipulator(rot_ang=rot_ang, q=q, rs=p, size=s, ax=ax, b0=b0)
+            self.satellite_namipulator(rot_ang=rot_ang, q=q, rs=rs, size=size[0], ax=ax, b0=b0)
             # plt.pause(0.05)
 
             # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/%02d.png" % i)
@@ -129,12 +127,14 @@ class ForwardKin:
 
 if __name__ == '__main__':
     pi = np.pi
-    q1 = np.array([0., 5 * pi / 4, 0., 0., 0., 0., 0.])
-    b0 = np.array([-1.05, 1.05, 0])
-
-    fwd_kin = ForwardKin(nDoF=7, robot='7DoF')
+    b0 = np.array([1.05, 1.05, 0], dtype=float)
+    nDoF, robot = 7, '7DoF'
+    dyn = Dynamics(nDoF=nDoF, robot=robot)
+    fwd_kin = ForwardKin(nDoF=nDoF, robot=robot)
     i = 1  # int(input('1:Matplotlib, 2: Mayavi'))
-    rs1, ang_s1 = np.zeros(3).reshape(-1, 1), np.zeros(3).reshape(-1, 1)
+    q1 = dyn.kin.q0
+    ang_s1 = np.zeros(3)
+    rs1 = dyn.spacecraft_com_pos(q=q1, ang_s=ang_s1, b0=b0)
     if i == 1:
         # For Matplotlib simulation:
         fwd_kin.simulation(r_s=rs1, ang_s=ang_s1, q=q1, b0=b0)
@@ -145,3 +145,4 @@ if __name__ == '__main__':
         # MR.anim(rs=rs1, angs=ang_s1, q=q1, b0=b0, fig_save=False, reverse=False)
         # mlab.show()
         pass
+    print('hi')
