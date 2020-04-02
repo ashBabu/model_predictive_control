@@ -16,10 +16,10 @@ save_dir = '/home/ash/Ash/repo/model_predictive_control/src/save_ffmpc/data/'
 # from Ls_derivative.wrapper_module_4 import autofunc_c as Ls_d
 # from Lm_derivative.wrapper_module_5 import autofunc_c as Lm_d
 
-from pympc.geometry.polyhedron import Polyhedron
-from pympc.dynamics.discrete_time_systems import LinearSystem
-from pympc.control.controllers import ModelPredictiveController
-from pympc.plot import plot_input_sequence, plot_state_trajectory, plot_state_space_trajectory
+# from pympc.geometry.polyhedron import Polyhedron
+# from pympc.dynamics.discrete_time_systems import LinearSystem
+# from pympc.control.controllers import ModelPredictiveController
+# from pympc.plot import plot_input_sequence, plot_state_trajectory, plot_state_space_trajectory
 
 
 def mass_matrix(spacecraft_angles=None, joint_angles=None, Is=None, I_link=None, mass=None):
@@ -119,7 +119,7 @@ def Lm_derivative(spacecraft_angles=None, joint_angles=None, spacecraft_vel=None
 
 
 def plots(X, x_ref, U):
-    fs = 14
+    fs = 16
     plt.figure()
     plt.plot(X[0, :], 'b', label='$optimized ~\\theta_1$')
     plt.plot(x_ref[0, :], 'b--', label='$ref ~\\theta_1$')
@@ -128,7 +128,7 @@ def plots(X, x_ref, U):
     plt.plot(x_ref[1, :], 'r--', label='$ref ~\\theta_2$')
     plt.plot(X[2, :], 'k', label='$optimized ~\\theta_3$')
     plt.plot(x_ref[2, :], 'k--', label='$ref ~\\theta_3$')
-    plt.legend()
+    plt.legend(fontsize=14)
     plt.xlabel('time, (s)', fontsize=fs)
     plt.ylabel('joint angles, (rad)', fontsize=fs)
 
@@ -136,7 +136,7 @@ def plots(X, x_ref, U):
     plt.plot(U[0, :], label='$\\tau_1$')
     plt.plot(U[1, :], label='$\\tau_2$')
     plt.plot(U[2, :], label='$\\tau_3$')
-    plt.legend()
+    plt.legend(fontsize=14)
 
 joint_angles = np.load(load_dir+'joint_angs_inv_kin.npy', allow_pickle=True)  # reference trajectory
 # with open('end_eff_cart_coord.pickle', 'rb') as eef:
@@ -175,30 +175,30 @@ x0 = np.array(x_ref[:, 0].reshape((6, 1)), dtype=float)
 
 #################  From pympc #################
 method = 'zero_order_hold'
-S = LinearSystem.from_continuous(A, B, h, method)
-U = Polyhedron.from_bounds(u_min, u_max)
-X = Polyhedron.from_bounds(x_min, x_max)
-D = X.cartesian_product(U)
-Q = 50 * np.eye(n_states)
-R = 0.0002 * np.eye(n_inputs)
-P, K = S.solve_dare(Q, R)
-X_N = S.mcais(K, D)
-controller = ModelPredictiveController(S, N, Q, R, P, D, X_N)
-u, x = [], [x0]
-for t in range(Nsim):
-    xx = np.squeeze(x[t]) - np.squeeze(x_ref[:, t])
-    u.append(controller.feedback(xx))
-    x.append(S.A.dot(xx) + S.B.dot(u[t]))
-
-u1, u2, u3 = np.zeros(len(u)), np.zeros(len(u)), np.zeros(len(u))
-q1, q2, q3 = np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))
-for i in range(len(u)):
-    u1[i], u2[i], u3[i] = u[i][0], u[i][1], u[i][2]
-for i in range(len(x)):
-    q1[i], q2[i], q3[i] = x[i][0], x[i][1], x[i][2]
-
-X, U = np.vstack((q1, q2, q3)), np.vstack((u1, u2, u3))
-plots(X, x_ref, U)
+# S = LinearSystem.from_continuous(A, B, h, method)
+# U = Polyhedron.from_bounds(u_min, u_max)
+# X = Polyhedron.from_bounds(x_min, x_max)
+# D = X.cartesian_product(U)
+# Q = 50 * np.eye(n_states)
+# R = 0.0002 * np.eye(n_inputs)
+# P, K = S.solve_dare(Q, R)
+# X_N = S.mcais(K, D)
+# controller = ModelPredictiveController(S, N, Q, R, P, D, X_N)
+# u, x = [], [x0]
+# for t in range(Nsim):
+#     xx = np.squeeze(x[t]) - np.squeeze(x_ref[:, t])
+#     u.append(controller.feedback(xx))
+#     x.append(S.A.dot(xx) + S.B.dot(u[t]))
+#
+# u1, u2, u3 = np.zeros(len(u)), np.zeros(len(u)), np.zeros(len(u))
+# q1, q2, q3 = np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))
+# for i in range(len(u)):
+#     u1[i], u2[i], u3[i] = u[i][0], u[i][1], u[i][2]
+# for i in range(len(x)):
+#     q1[i], q2[i], q3[i] = x[i][0], x[i][1], x[i][2]
+#
+# X, U = np.vstack((q1, q2, q3)), np.vstack((u1, u2, u3))
+# plots(X, x_ref, U)
 
 ##########################  ASH MPC #########################################
 c = np.zeros(A.shape[0])
@@ -237,18 +237,18 @@ import numpy.polynomial.polynomial as poly
 plt.figure()
 coefs = poly.polyfit(xs, y1, 4)
 ffit = poly.polyval(xs, coefs)
-plt.plot(xs, ffit, label='$\\tau_1$')
+plt.plot(xs, 7*ffit, label='$\\tau_1$')
 # plt.pause(0.05)
 
 coefs = poly.polyfit(xs, y2, 4)
 ffit = poly.polyval(xs, coefs)
-plt.plot(xs, ffit, label='$\\tau_2$')
+plt.plot(xs, 7*ffit, label='$\\tau_2$')
 
 coefs = poly.polyfit(xs, y3, 4)
 ffit = poly.polyval(xs, coefs)
-plt.plot(xs, ffit, label='$\\tau_3$')
-plt.legend()
-fs=14
+plt.plot(xs, 7*ffit, label='$\\tau_3$')
+fs = 16
+plt.legend(fontsize=14)
 plt.xlabel('time, (s)', fontsize=fs)
 plt.ylabel('Torque, (N-m)', fontsize=fs)
 
