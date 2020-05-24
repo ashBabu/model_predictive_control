@@ -685,7 +685,7 @@ if __name__ == '__main__':
     # a, b, c = kin.position_vectors(b0=kin.b0, symbolic=symbolic)
     # a, b = kin.ab_vectors(b0=kin.b0, symbolic=symbolic)
     # a, b, c = kin.velocities(b0=kin.b0, symbolic=symbolic)
-    M, C = dyn.get_dyn_para2(b0=kin.b0, symbolic=symbolic)
+    M, C = dyn.get_dyn_para(b0=kin.b0, symbolic=symbolic)
     # np.save('MassMatrix.npy', M, allow_pickle=True)
     # np.save('CoriolisVector.npy', C, allow_pickle=True)
 

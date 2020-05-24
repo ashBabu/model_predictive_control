@@ -63,14 +63,28 @@ if __name__ == '__main__':
     size = traj_learn.spacecraft_inv_kin.kin.size
 
     n_samples = 20
+    learned_traj = traj_learn.trajectories_learned
+    cond_traj = traj_learn.trajectories_task_conditioned
     conditioned_trajs = traj_learn.taskProMP.getTrajectorySamples(time, n_samples=n_samples)  # ntime x nDoF x nsamples
 
-    pltDof = 3
+    pltDof = 1
     plt.figure()
     plt.plot(time, conditioned_trajs[:, pltDof, :])
-    plt.xlabel('time')
+    plt.xlabel('Time, (s)', fontsize=14)
+    plt.ylabel('Angle, (rad)', fontsize=14)
     plt.title('Joint-Space conditioning')
     # plt.show()
+    plt.figure()
+    plt.plot(time, cond_traj[:, pltDof, :])
+    plt.xlabel('Time, (s)', fontsize=14)
+    plt.ylabel('Angle, (rad)', fontsize=14)
+    plt.title('Joint-Space conditioning')
+
+    plt.figure()
+    plt.plot(time, learned_traj[:, pltDof, :])
+    plt.xlabel('Time, (s)', fontsize=14)
+    plt.ylabel('Angle, (rad)', fontsize=14)
+    plt.title('Learned trjactories')
 
     ###  code for finding the spacecraft angular values from the conditioned joint values ###
     spacecraftAngles = np.zeros((n_samples, len(time), 3))
