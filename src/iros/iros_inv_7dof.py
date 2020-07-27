@@ -6,6 +6,7 @@ from iros_7DoF_EOM import Dynamics, Kinematics
 from iros_forward_kin import ForwardKin
 from scipy.spatial.transform import Rotation as R
 from utils import Utilities
+from collections import deque
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(precision=3)
 
@@ -153,8 +154,9 @@ class InvKin:
             r_eef_current = self.manip_eef_pos(ang_s0, q0)
         return ang_s, q
 
-    def animation(self, r_s, size, rot_ang, q, path, color='green', pv_com=None, ax=None,):
+    def animation(self, r_s, size, rot_ang, q, path, color='green', pv_com=None, ax=None):
         a = 3.1
+        lp = len(path)
         # rot_ang is a 3 x t vector of the rotation angles of the spacecraft. q is manipulator angles
         if not ax:
             fig = plt.figure()
@@ -169,32 +171,44 @@ class InvKin:
             ax.w_yaxis.pane.fill = False
             ax.w_zaxis.pane.fill = False
 
-        for i in range(rot_ang.shape[1]):
+        k = 0
+        sh = rot_ang.shape[1]
+        for i in range(sh):
             plt.cla()
             temp = [(r_s[:, i][0], r_s[:, i][1], r_s[:, i][2])]
             qi = q[:, i]
             # ax = plt.axes(projection='3d')
             # ax.set_aspect('equal')
             # fig.set_facecolor('black')
-            # ax.set_facecolor('black')
-            # ax.grid(False)
+            ax.set_facecolor('black')
+            ax.grid(False)
             # ax.w_xaxis.pane.fill = False
             # ax.w_yaxis.pane.fill = False
             # ax.w_zaxis.pane.fill = False
+            ax.w_xaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
+            ax.w_yaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
+            ax.w_zaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
             # X1, Y1, arr = self.image_draw('space.png')
             # ax.plot_surface(X1, Y1, np.ones(X1.shape), rstride=1, cstride=1, facecolors=arr)
             # plt.axis('off')
+            color = deque(['r', 'y', 'b', 'k'])
             if isinstance(pv_com, (list, tuple, np.ndarray)):
                 ax.scatter(pv_com[i, 0, :], pv_com[i, 1, :], pv_com[i, 2, :], 'r^', lw=8)  # plot of COMs
+
             for p, s, c in zip(temp, size, color):
                 self.fwd_kin.satellite_namipulator(rot_ang=rot_ang[:, i], q=qi, rs=p, size=s, ax=ax, b0=self.b0)
-                ax.scatter(path[0, :], path[1, :], path[2, :], 'r-', lw=4)
-                # ax.view_init(elev=85., azim=-58)
+                ax.view_init(elev=58, azim=150)
+                for j in reversed(range(lp)):
+                    ax.scatter(path[j][0, :], path[j][1, :], path[j][2, :], c=color[j])
             ax.set_zlim(-a, a)
             ax.set_ylim(-a, a)
             ax.set_xlim(-a, a)
             plt.pause(0.05)
-            # plt.savefig("/home/ar0058/Ash/repo/model_predictive_control/src/animation/inv_kinematics_direct/%02d.png" % i)
+            if lp > 1:
+                k = (lp-1)*sh + 1 + i
+            else:
+                k = i
+            plt.savefig("/home/ash/Ash/repo/model_predictive_control/src/iros/save_data_inv_kin/animation/%04d.png" % k)
             # print('hi')
 
     def get_circle(self, scale=0.1, start=None, goal=None):
@@ -210,6 +224,7 @@ class InvKin:
         a, b = 1, 1
         c = -(1 / dir_vec[2]) * (dir_vec[0] + dir_vec[1])
         perp_vec = np.array([a, b, c])
+        perp_vec = 30*perp_vec/np.linalg.norm(perp_vec)
 
         for i, ang in enumerate(angles):
             rot = R.from_rotvec(ang * dir_vec)
@@ -234,20 +249,22 @@ if __name__ == '__main__':
     robot = '7DoF'
     IK = InvKin(nDoF=nDoF, robot=robot, b0=b0)
     util = Utilities()
-    target_loc = np.array([[-3, 2.5, 0.0], [-3, 1.2, 0.0], [-2, 1.5, 1], [-2, 2.5, -1], [-2.5, 2., -0.5],
-                           [-1.5, 2., 0.5], [-2., 1., -0.75], [-2, 1.0, -1.5], [-1.5, 2., 2.]])
+    # target_loc = np.array([[-3, 2.5, 0.0], [-3, 1.2, 0.0], [-2, 1.5, 1], [-2, 2.5, -1], [-2.5, 2., -0.5],
+    #                        [-1.5, 2., 0.5], [-2., 1., -0.75], [-2, 1.0, -1.5], [-1.5, 2., 2.]])
+    target_loc = np.array([[-3, 2.5, 0.0]])  # [-3, 1.2, 0.0]])
     # end-effector target location
     # target_loc = np.array([])
-    q0 = np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])  # initial joint angles
+    q0 = IK.kin.q0  # initial joint angles
     ang_s0 = IK.kin.ang_s0  # initial spacecraft angles
     r_s0 = IK.dyn.spacecraft_com_pos(ang_s=ang_s0, q=q0, b0=b0)  # initial position vector of spacecraft CG wrt inertial
     # points = IK.path(target_loc, q0)  # straight line path (x, y, z) from current to target location
     start = IK.manip_eef_pos(ang_s0, q0)  # manipulator end-effector position for the ang_s0 and q0
 
-    def call_plots(spacecraftAngles=None, jointAngles=None, spacecraftPosVec=None, ref_path=None):
+    def call_plots(spacecraftAngles=None, jointAngles=None, spacecraftPosVec=None, ref_path=None, ax=None):
         # IK.get_plts(spacecraftAngles, jointAngles)  # to get plots
-        plt.figure()
-        ax = plt.axes(projection='3d')
+        if not ax:
+            plt.figure()
+            ax = plt.axes(projection='3d')
         IK.animation(spacecraftPosVec, IK.kin.size, spacecraftAngles, jointAngles, ref_path, ax=ax)  # animation
     """
     To generate reference trajectories from the current to target position, quadratic bezier curves are used. They
@@ -255,11 +272,27 @@ if __name__ == '__main__':
     circle whose center is at the midpoint between start and goal and is perpendicular to the line joining the start
     and goal
     """
-    plott = False
+    def circ_plot(start, goal, circ, ax=None):
+        mid_pt = (start + goal) * 0.5
+        ax.scatter(start[0], start[1], start[2], 'r*')
+        ax.scatter(goal[0], goal[1], goal[2], 'r*')
+        ax.scatter(mid_pt[0], mid_pt[1], mid_pt[2], 'r*')
+        ax.plot(circ[0, :], circ[1, :], circ[2, :], 'b*')
+        ax.plot([start[0], goal[0]], [start[1], goal[1]], [start[2], goal[2]], 'k')
+
+    plott = True
     spacecraft_angles, joint_angles = [], []
     endEff_posVec, spacecraft_posVec = [], []
+
+    # fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    # ax = fig.gca(projection='3d')
+
+    all_paths = list()
     for target in target_loc:
         circ1 = IK.get_circle(start=start, goal=target)
+        # circ_plot(start=start, goal=target, circ=circ1, ax=ax)
+        # plt.pause(0.05)
         for jk, point in enumerate(circ1.T):
             ref_path = util.quadratic_bezier(start, point, target)
             A, Q = IK.call_optimize(ang_s0=ang_s0, q0=q0, ref_path=ref_path)
@@ -275,7 +308,8 @@ if __name__ == '__main__':
             endEff_posVec.append(end_eff_pos)
             spacecraft_posVec.append(r_s)
             if plott and jk % 10 == 0:
-                call_plots(spacecraftAngles=A, jointAngles=Q, spacecraftPosVec=r_s, ref_path=ref_path)
+                all_paths.append(ref_path)
+                call_plots(spacecraftAngles=A, jointAngles=Q, spacecraftPosVec=r_s, ref_path=all_paths, ax=ax)
     np.save(save_dir + '/save_data_inv_kin/data/SpacecraftAnglesList.npy', spacecraft_angles, allow_pickle=True)
     np.save(save_dir + '/save_data_inv_kin/data/JointAnglesList.npy', joint_angles, allow_pickle=True)
     np.save(save_dir + '/save_data_inv_kin/data/endEffPosVecList.npy', endEff_posVec, allow_pickle=True)

@@ -49,10 +49,10 @@ class ForwardKin:
         ax.scatter(rs[0], rs[1], rs[2], marker="4")  # satellite CG
         ax.text(rs[0], rs[1], rs[2], "spacecraft_CG", color='y', fontsize=14)  # satellite CG
         xz, yz, zz = T_combined[0, 0, 2], T_combined[0, 1, 2], T_combined[0, 2, 2]
-        ax.add_artist(Arrow3D([rs[0], rs[0] + scl * xz], [rs[1], rs[1] + scl * yz],
-                              [rs[2], rs[2] + + scl * zz], mutation_scale=20,
-                              lw=3, arrowstyle="-|>", color="b"))  # spacecraft z (joint) axis
-        plt.pause(0.05)
+        # ax.add_artist(Arrow3D([rs[0], rs[0] + scl * xz], [rs[1], rs[1] + scl * yz],
+        #                       [rs[2], rs[2] + + scl * zz], mutation_scale=20,
+        #                       lw=3, arrowstyle="-|>", color="b"))  # spacecraft z (joint) axis
+        # plt.pause(0.05)
         xx, yy, zz = T_combined[1, 0, 3], T_combined[1, 1, 3], T_combined[1, 2, 3]  # robot base (x, y, z)
         ax.scatter(xx, yy, zz, lw=5)
         if ax is not None:
@@ -66,10 +66,10 @@ class ForwardKin:
             for i in range(2, T_combined.shape[0]):
                 jx, jy, jz = T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3]
                 ax.plot([xx, jx], [yy, jy], [zz, jz], lw=10)  # line segment between joints or links
-                ax.add_artist(Arrow3D([jx, jx + scl*T_combined[i, 0, 2]], [jy, jy+ scl*T_combined[i, 1, 2]], [jz, jz+ + scl*T_combined[i, 2, 2]], mutation_scale=20,
-                        lw=3, arrowstyle="-|>", color="b"))  # z (joint) axis
-                ax.add_artist(Arrow3D([jx, jx + scl*T_combined[i, 0, 0]], [jy, jy+ scl*T_combined[i, 1, 0]], [jz, jz+ + scl*T_combined[i, 2, 0]], mutation_scale=20,
-                        lw=5, arrowstyle="-|>", color="r"))  # x  axis
+                # ax.add_artist(Arrow3D([jx, jx + scl*T_combined[i, 0, 2]], [jy, jy+ scl*T_combined[i, 1, 2]], [jz, jz+ + scl*T_combined[i, 2, 2]], mutation_scale=20,
+                #         lw=3, arrowstyle="-|>", color="b"))  # z (joint) axis
+                # ax.add_artist(Arrow3D([jx, jx + scl*T_combined[i, 0, 0]], [jy, jy+ scl*T_combined[i, 1, 0]], [jz, jz+ + scl*T_combined[i, 2, 0]], mutation_scale=20,
+                #         lw=5, arrowstyle="-|>", color="r"))  # x  axis
                 if i < ll-1:
                     ax.scatter(T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3], 'gray', lw=10)
                 xx, yy, zz = T_combined[i, 0, 3], T_combined[i, 1, 3], T_combined[i, 2, 3]
@@ -85,8 +85,8 @@ class ForwardKin:
             plt.xlabel('X')
             plt.ylabel('Y')
             # ax.axis('equal')
-            ax.view_init(elev=141., azim=30.)
-            ax.set_zlim(-a, a)
+            # ax.view_init(elev=141., azim=30.)
+            # ax.set_zlim(-a, a)
             # ax.set_ylim(-a, a)
             # ax.set_xlim(-a, a)
 

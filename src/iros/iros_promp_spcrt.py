@@ -53,9 +53,11 @@ class TrajectoryLearning:
 
 if __name__ == '__main__':
     time = np.linspace(0, 1, 50)
-    nDoF, nBf = 7, 10
+    nDoF, nBf, robot = 7, 10, '7DoF'
+    dyn = Dynamics(nDoF=nDoF, robot=robot)
     target = np.array([-2.8, 0.95, 0.25])
-    ang_s0, q0 = np.array([0., 0., 0.]), np.array([0., 5 * np.pi / 4, 0., 0., 0., 0., 0.])
+    ang_s0, q0 = dyn.kin.ang_s0, dyn.kin.q0
+
     b0 = np.array([1.05, 1.05, 0])
     traj_learn = TrajectoryLearning(time, target, ang_s0, q0, nDoF=nDoF, nBf=nBf)
     eef_curr_position = traj_learn.spacecraft_inv_kin.manip_eef_pos(ang_s0, q0)
@@ -107,10 +109,14 @@ if __name__ == '__main__':
             'weight': 'normal',
             'size': 16,
             }
-    traj_learn.spacecraft_fwd_kin.call_plot(rs0, size, 'red', ang_s0, q0)
 
     plt.pause(0.05)
-    plt.plot(endEffPos[:, :, 0].reshape(-1), endEffPos[:, :, 1].reshape(-1), endEffPos[:, :, 2].reshape(-1), 'b-')
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    traj_learn.spacecraft_fwd_kin.call_plot(rs0, size, 'red', ang_s0, q0, ax=ax)
+    ax.plot(endEffPos[:, :, 0].reshape(-1), endEffPos[:, :, 1].reshape(-1), endEffPos[:, :, 2].reshape(-1), 'b-')
+    ax.scatter(target[0], target[1], target[2], c='r', marker="D")
+
     plt.figure()
     plt.plot(range(0, n_samples), TrajCost, '^')
     index, minTrajCost = np.where(TrajCost == min(TrajCost))[0][0], min(TrajCost)
